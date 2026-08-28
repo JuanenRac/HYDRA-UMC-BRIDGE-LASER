@@ -44,3 +44,10 @@ verfügbar sind.
 
 Version `0.0.1` ist ein lokal getesteter ausfallsicherer Planungskern. Sie wurde
 nicht mit einem Lasersystem verbunden oder zum Betrieb eines solchen verwendet.
+
+## ⚙️ Versionierter Build
+
+`build-test.bat` / `build-test.sh` validieren ohne das Repository zu ändern.
+`build.bat` / `build.sh` führen zuerst diese Validierung aus und
+synchronisieren nur bei Erfolg native Version, Manifest und `CHANGELOG.md`.
+Vor einer sicheren Steuerungsintegration gibt es keinen Laser-`run`-Befehl.

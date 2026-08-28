@@ -37,3 +37,9 @@ Windows 运行 `build-test.bat`，Linux 运行 `bash build-test.sh`。它不更�
 ## 状态
 
 版本 `0.0.1` 是本地、已测试且默认安全的规划核心。它尚未连接或用于操作激光系统。
+
+## ⚙️ 版本化构建
+
+`build-test.bat` / `build-test.sh` 只验证，不修改仓库。`build.bat` /
+`build.sh` 先运行该验证，只有成功后才同步原生包版本、清单和 `CHANGELOG.md`。
+在安全的激光控制器集成验证前，不提供激光 `run` 命令。
