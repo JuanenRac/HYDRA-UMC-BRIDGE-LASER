@@ -6,6 +6,8 @@ GPL-3.0-or-later - see LICENSE
 
 # HYDRA-UMC-BRIDGE-LASER
 
+🇺🇸 **English** | 🇪🇸 [Español](README_spa.md) | 🇫🇷 [Français](README_fra.md) | 🇮🇹 [Italiano](README_ita.md) | 🇩🇪 [Deutsch](README_deu.md) | 🇨🇳 [简体中文](README_zho.md) | 🇯🇵 [日本語](README_jpn.md)
+
 High-level bridge for laser cells and HYDRA-UMC robot auxiliaries. It can
 coordinate safe peripheral tasks such as material hand-off, but it cannot arm,
 fire or override a laser controller.
