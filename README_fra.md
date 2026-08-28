@@ -46,3 +46,10 @@ de son interface documentée.
 
 La version `0.0.1` est un noyau local de planification sûr par défaut et
 testé. Il n'a été ni connecté à un système laser ni utilisé pour le piloter.
+
+## ⚙️ Compilation versionnée
+
+`build-test.bat` / `build-test.sh` valident sans modifier le dépôt.
+`build.bat` / `build.sh` exécutent d'abord cette validation puis, uniquement
+en cas de succès, synchronisent version native, manifeste et `CHANGELOG.md`.
+Il n'existe pas de commande `run` laser avant une intégration sûre réelle.

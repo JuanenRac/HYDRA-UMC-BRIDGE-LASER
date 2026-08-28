@@ -41,3 +41,10 @@ deferred until the machine and its documented interface are available.
 
 Version `0.0.1` is a local, tested fail-safe planning core. It has not been
 connected to or used to operate a laser system.
+
+## ⚙️ Versioned Build
+
+`build-test.bat` / `build-test.sh` validate without modifying the repository.
+`build.bat` / `build.sh` run that validation first and, only on success,
+synchronize the native package version, manifest and `CHANGELOG.md`. There is
+no live laser `run` command until a safe controller integration is validated.

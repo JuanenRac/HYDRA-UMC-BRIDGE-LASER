@@ -44,3 +44,10 @@ intencionadamente hasta disponer de la máquina y su interfaz documentada.
 
 La versión `0.0.1` es un núcleo local de planificación segura por defecto y
 probado. No se ha conectado ni utilizado para operar un sistema láser.
+
+## ⚙️ Compilación con versión
+
+`build-test.bat` / `build-test.sh` validan sin modificar el repositorio.
+`build.bat` / `build.sh` ejecutan primero esa validación y, solo si es
+correcta, sincronizan la versión nativa, el manifiesto y `CHANGELOG.md`. No
+existe un comando `run` láser hasta validar una integración segura de control.

@@ -46,3 +46,10 @@ la macchina e la relativa interfaccia documentata.
 La versione `0.0.1` è un nucleo di pianificazione locale, testato e sicuro per
 impostazione predefinita. Non è stato collegato né usato per azionare un sistema
 laser.
+
+## ⚙️ Build con versione
+
+`build-test.bat` / `build-test.sh` convalidano senza modificare il repository.
+`build.bat` / `build.sh` eseguono prima tale convalida e, solo se riesce,
+sincronizzano versione nativa, manifesto e `CHANGELOG.md`. Non esiste un
+comando `run` laser prima di una convalida sicura del controllore.
