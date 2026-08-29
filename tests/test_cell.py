@@ -25,5 +25,9 @@ class LaserCellTests(unittest.TestCase):
         decision = LaserCellBridge().plan(job(JobPhase.ABORT), CellState.FAULT, LaserSafetySnapshot("FAULT", True, True, False))
         self.assertTrue(decision.allowed)
 
+    def test_non_text_controller_state_fails_safe_instead_of_crashing(self):
+        state = LaserSafetySnapshot(None, True, True, True).machine_state()  # type: ignore[arg-type]
+        self.assertEqual(state, MachineState.OFFLINE)
+
 
 if __name__ == "__main__": unittest.main()

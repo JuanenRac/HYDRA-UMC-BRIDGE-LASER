@@ -105,7 +105,7 @@ bash build.sh
 
 ## ✅ ÉTAT ACTUEL ET PROCHAINES ÉTAPES
 
-**Réel aujourd'hui :** version `0.0.1`, un noyau de planification à sécurité intrinsèque testé localement (`LaserSafetySnapshot` + `LaserCellBridge`) adossé au portail de tâches partagé de `HYDRA-UMC-SDK`, une suite `unittest` déterministe, et des scripts build-test non mutants intégrés en CI avec clonage du SDK.
+**Réel aujourd'hui :** version `0.0.2`, un noyau de planification à sécurité intrinsèque testé localement (`LaserSafetySnapshot` + `LaserCellBridge`) adossé au portail de tâches partagé de `HYDRA-UMC-SDK`, une suite `unittest` déterministe, et des scripts build-test non mutants intégrés en CI avec clonage du SDK.
 
 **Frontière d'intégration :** l'enceinte, la clé et l'interverrouillage certifiés du contrôleur laser lui-même ne sont jamais contournés ; ce pont ne fait que réguler le travail robotique *auxiliaire* autour de lui, uniquement en lisant son état rapporté.
 

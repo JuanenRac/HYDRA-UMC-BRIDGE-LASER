@@ -22,6 +22,8 @@ class LaserSafetySnapshot:
     def machine_state(self) -> MachineState:
         if not self.key_enabled or not self.enclosure_closed or not self.interlock_healthy:
             return MachineState.SAFE_STOP
+        if not isinstance(self.controller_state, str):
+            return MachineState.OFFLINE
         state = self.controller_state.upper()
         if state == "IDLE":
             return MachineState.IDLE
