@@ -8,7 +8,7 @@ GPL-3.0-or-later - see LICENSE
 
 ## Scope and operating model
 
-`LaserSafetySnapshot` requires a literal idle state and three independently reported safeguards: key enabled, enclosure closed and interlock healthy. `observation.py` normalizes saved local evidence and treats every missing, numeric or text-like safeguard as unsafe. The bridge can gate external auxiliary work but cannot configure, arm or fire a laser.
+`LaserSafetySnapshot` requires a literal idle state and three independently reported safeguards: key enabled, enclosure closed and interlock healthy. `observation.py` normalizes saved local evidence and treats every missing, numeric or text-like safeguard as unsafe. `snapshot_from_fresh_mapping()` additionally requires an explicit `observed_at_ms` value to be no older than a caller-supplied bound; stale, future or malformed evidence clears the interlock health signal. The bridge can gate external auxiliary work but cannot configure, arm or fire a laser.
 
 ## Compatible software
 

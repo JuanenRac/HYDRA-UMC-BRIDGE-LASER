@@ -6,6 +6,12 @@ GPL-3.0-or-later - see LICENSE
 
 # Changelog
 
+## Unreleased
+
+- Added pure offline freshness validation for saved interlock evidence. A
+  missing, stale, future or malformed timestamp fails closed; it cannot turn a
+  previously safe snapshot into authority to arm or fire a laser.
+
 ## [0.0.4] - 2026-08-30
 
 - Added `docs/BRIDGE_GUIDE.md`, defining controller-neutral safety scope,

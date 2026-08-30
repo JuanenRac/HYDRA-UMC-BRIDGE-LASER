@@ -11,7 +11,7 @@ import unittest
 from pathlib import Path
 
 from hydra_umc_sdk.bridge_contract import MachineState
-from hydra_umc_bridge_laser.observation import snapshot_from_mapping
+from hydra_umc_bridge_laser.observation import snapshot_from_fresh_mapping, snapshot_from_mapping
 
 
 class LaserObservationTests(unittest.TestCase):
@@ -28,6 +28,13 @@ class LaserObservationTests(unittest.TestCase):
 
     def test_unknown_state_stays_offline_when_all_safeguards_are_true(self):
         self.assertEqual(snapshot_from_mapping({"state": "mystery", "key_enabled": True, "enclosure_closed": True, "interlock_healthy": True}).machine_state(), MachineState.OFFLINE)
+
+    def test_stale_or_invalid_interlock_evidence_fails_closed(self):
+        payload = {"state": "IDLE", "key_enabled": True, "enclosure_closed": True, "interlock_healthy": True, "observed_at_ms": 9_500}
+        self.assertEqual(snapshot_from_fresh_mapping(payload, now_ms=10_000, max_age_ms=500).machine_state(), MachineState.IDLE)
+        self.assertEqual(snapshot_from_fresh_mapping(payload, now_ms=10_001, max_age_ms=500).machine_state(), MachineState.SAFE_STOP)
+        self.assertEqual(snapshot_from_fresh_mapping({**payload, "observed_at_ms": 10_001}, now_ms=10_000, max_age_ms=500).machine_state(), MachineState.SAFE_STOP)
+        self.assertEqual(snapshot_from_fresh_mapping({"state": "IDLE", "key_enabled": True, "enclosure_closed": True, "interlock_healthy": True}, now_ms=10_000, max_age_ms=500).machine_state(), MachineState.SAFE_STOP)
 
     def test_offline_cli_reads_saved_evidence_without_laser_connection(self):
         root = Path(__file__).resolve().parent.parent
