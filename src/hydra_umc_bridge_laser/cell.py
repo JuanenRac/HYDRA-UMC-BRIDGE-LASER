@@ -27,8 +27,19 @@ class LaserSafetySnapshot:
         state = self.controller_state.upper()
         if state == "IDLE":
             return MachineState.IDLE
-        if state in {"RUN", "RUNNING", "PAUSED"}:
+        if state in {"RUN", "RUNNING"}:
             return MachineState.RUNNING
+        # A paused job means the beam is not actively cutting/engraving - a
+        # real, safety-relevant distinction from RUNNING, not just a naming
+        # nuance. Collapsing it into RUNNING hid this distinct condition.
+        # HOLDING already exists in the shared SDK for exactly this,
+        # matching the same real "paused is not running" fix already made
+        # in the sibling PRINTER3D (Moonraker print_stats.state=paused) and
+        # CNC (GRBL Hold) bridges. Does not change any dispatch decision -
+        # evaluate_job() only permits productive work on IDLE either way -
+        # only the accuracy of the reported state.
+        if state == "PAUSED":
+            return MachineState.HOLDING
         if state in {"FAULT", "ALARM", "ERROR"}:
             return MachineState.FAULT
         return MachineState.OFFLINE

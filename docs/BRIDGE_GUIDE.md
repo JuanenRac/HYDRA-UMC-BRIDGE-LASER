@@ -10,6 +10,8 @@ GPL-3.0-or-later - see LICENSE
 
 `LaserSafetySnapshot` requires a literal idle state and three independently reported safeguards: key enabled, enclosure closed and interlock healthy. `observation.py` normalizes saved local evidence and treats every missing, numeric or text-like safeguard as unsafe. `snapshot_from_fresh_mapping()` additionally requires an explicit `observed_at_ms` value to be no older than a caller-supplied bound; stale, future or malformed evidence clears the interlock health signal. The bridge can gate external auxiliary work but cannot configure, arm or fire a laser.
 
+`LaserSafetySnapshot.machine_state()`'s `controller_state` vocabulary: `IDLE` -> `IDLE`; `RUN`/`RUNNING` -> `RUNNING`; `PAUSED` -> `HOLDING` (a paused job means the beam is not actively cutting/engraving, a real, distinct condition from actively running); `FAULT`/`ALARM`/`ERROR` -> `FAULT`. Any other token stays `OFFLINE`, the same conservative fail-safe default used for every unrecognized signal in this bridge.
+
 ## Compatible software
 
 No live laser application/controller is integrated yet. The bridge is deliberately controller-neutral until a specific machine and documented safety interface are chosen. Future compatibility may target controller software that can expose independently certified state, key, enclosure and interlock observations; a generic G-code sender is not a valid laser safety adapter.

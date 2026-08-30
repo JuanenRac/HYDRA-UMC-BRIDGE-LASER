@@ -29,5 +29,17 @@ class LaserCellTests(unittest.TestCase):
         state = LaserSafetySnapshot(None, True, True, True).machine_state()  # type: ignore[arg-type]
         self.assertEqual(state, MachineState.OFFLINE)
 
+    def test_paused_job_maps_to_holding_not_running(self):
+        # A paused job means the beam is not actively cutting/engraving - a
+        # real, distinct condition from RUNNING, matching the same real
+        # "paused is not running" fix already made in the sibling
+        # PRINTER3D and CNC bridges.
+        state = LaserSafetySnapshot("PAUSED", True, True, True).machine_state()
+        self.assertEqual(state, MachineState.HOLDING)
+
+    def test_holding_laser_does_not_permit_new_productive_work(self):
+        decision = LaserCellBridge().plan(job(), CellState.READY, LaserSafetySnapshot("PAUSED", True, True, True))
+        self.assertFalse(decision.allowed)
+
 
 if __name__ == "__main__": unittest.main()

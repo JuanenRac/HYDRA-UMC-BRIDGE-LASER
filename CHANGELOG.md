@@ -6,11 +6,20 @@ GPL-3.0-or-later - see LICENSE
 
 # Changelog
 
-## Unreleased
+## [0.0.5] - Real paused-vs-running distinction
 
 - Added pure offline freshness validation for saved interlock evidence. A
   missing, stale, future or malformed timestamp fails closed; it cannot turn a
   previously safe snapshot into authority to arm or fire a laser.
+- **`cell.py`** - `LaserSafetySnapshot.machine_state()`'s `PAUSED` controller
+  state now maps to `HOLDING` instead of `RUNNING`. A paused job means the
+  beam is not actively cutting/engraving - a real, distinct condition, not
+  just a naming nuance, matching the same real "paused is not running" fix
+  already made in the sibling PRINTER3D (Moonraker `print_stats.state=
+  paused`) and CNC (GRBL `Hold`) bridges. Does not change any dispatch
+  decision - `evaluate_job()` only permits productive work on `IDLE` either
+  way - only the accuracy of the reported state.
+- 2 new regression tests - 12/12 tests passing.
 
 ## [0.0.4] - 2026-08-30
 
