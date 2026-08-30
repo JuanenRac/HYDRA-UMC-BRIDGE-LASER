@@ -6,6 +6,29 @@ GPL-3.0-or-later - see LICENSE
 
 # Changelog
 
+## [0.0.6] - Real, controller-neutral GPIO interlock reading (pre-real: connected, not simulated)
+
+- **`gpio_safety.py`** (new) - this bridge's first real transport:
+  `GpioSafetyProbe.read_snapshot()` reads the 3 real, independent safeguard
+  signals (`key_enabled`/`enclosure_closed`/`interlock_healthy`) over real
+  GPIO lines rather than a saved/simulated mapping. Deliberately does NOT
+  assume any specific laser controller brand or G-code dialect - this
+  bridge stays controller-neutral by design (see README/BRIDGE_GUIDE):
+  what's universal across laser cutters is that these 3 safeguards are
+  typically wired as simple, independently-certified digital signals (key
+  switch, door sensor, interlock relay feedback), so reading them directly
+  over GPIO is exactly the kind of independent evidence this bridge's own
+  design already calls for, without inventing a protocol decision that
+  isn't this bridge's to make. Uses libgpiod v2 (`gpiod`, new optional
+  `[gpio]` extra) - the same real library already chosen for the
+  `HYDRA_DATA_READY` line in the HYDRA-UMC CM5<->STM32H745 SPI link. A GPIO
+  read failure fails all 3 safeguards closed, never assumed True.
+  `open_gpio_safety_lines()` is the one place `gpiod` is imported, lazily,
+  degrading to a clear `RuntimeError` instead of a bare `ImportError` when
+  it isn't installed.
+- 4 new regression tests (against an in-memory fake `GpioLineReader` - no
+  real GPIO chip needed) - 16/16 tests passing.
+
 ## [0.0.5] - Real paused-vs-running distinction
 
 - Added pure offline freshness validation for saved interlock evidence. A

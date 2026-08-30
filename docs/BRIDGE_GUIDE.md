@@ -12,9 +12,11 @@ GPL-3.0-or-later - see LICENSE
 
 `LaserSafetySnapshot.machine_state()`'s `controller_state` vocabulary: `IDLE` -> `IDLE`; `RUN`/`RUNNING` -> `RUNNING`; `PAUSED` -> `HOLDING` (a paused job means the beam is not actively cutting/engraving, a real, distinct condition from actively running); `FAULT`/`ALARM`/`ERROR` -> `FAULT`. Any other token stays `OFFLINE`, the same conservative fail-safe default used for every unrecognized signal in this bridge.
 
+`gpio_safety.py`'s `GpioSafetyProbe.read_snapshot()` is this bridge's first real transport: it reads the same 3 independent safeguards (key/enclosure/interlock) from real GPIO lines via libgpiod v2 (`gpiod`, optional `[gpio]` extra, imported lazily inside `open_gpio_safety_lines()`) instead of a saved mapping. It is deliberately controller-neutral - a key switch, door sensor or interlock relay's own feedback contact is universal wiring across laser cutters regardless of brand, so reading it directly over GPIO needs no controller-specific protocol decision. A GPIO read failure fails all 3 safeguards closed, mirroring `observation.py`'s own "missing/invalid means unsafe" rule. The reading logic is written against a small `GpioLineReader` interface so it is unit-testable with an in-memory fake, with no real GPIO chip required.
+
 ## Compatible software
 
-No live laser application/controller is integrated yet. The bridge is deliberately controller-neutral until a specific machine and documented safety interface are chosen. Future compatibility may target controller software that can expose independently certified state, key, enclosure and interlock observations; a generic G-code sender is not a valid laser safety adapter.
+No live laser application/controller command path is integrated yet - the bridge is deliberately controller-neutral until a specific machine and documented safety interface are chosen for that. Real GPIO-level interlock reading (above) doesn't need that choice, since it targets the universal safety wiring, not a controller's own protocol. Future command-path compatibility may target controller software that can expose independently certified state, key, enclosure and interlock observations; a generic G-code sender is not a valid laser safety adapter.
 
 ## Scripts and verification
 

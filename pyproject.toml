@@ -8,10 +8,17 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 [project]
 name = "hydra-umc-bridge-laser"
-version = "0.0.5"
+version = "0.0.6"
 description = "Fail-safe HYDRA-UMC laser-cell coordination boundary"
 requires-python = ">=3.11"
 license = {text = "GPL-3.0-or-later"}
 dependencies = ["hydra-umc-sdk @ git+https://github.com/JuanenRac/HYDRA-UMC-SDK.git@main#subdirectory=clients/python"]
+
+[project.optional-dependencies]
+# Only open_gpio_safety_lines() needs this - it's imported lazily (see
+# gpio_safety.py's own comment) so the rest of the package, including every
+# safety-relevant reading/gating test, works without it installed.
+gpio = ["gpiod>=2.1"]
+
 [tool.setuptools.packages.find]
 where = ["src"]
