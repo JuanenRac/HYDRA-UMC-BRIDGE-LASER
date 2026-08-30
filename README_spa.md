@@ -105,7 +105,7 @@ bash build.sh
 
 ## ✅ ESTADO ACTUAL Y PRÓXIMOS PASOS
 
-**Real hoy:** versión `0.0.2`, un núcleo de planificación seguro por defecto probado en local (`LaserSafetySnapshot` + `LaserCellBridge`) apoyado en la puerta de trabajo compartida de `HYDRA-UMC-SDK`, una batería `unittest` determinista, y scripts de build-test no mutantes conectados a CI con clonado del SDK.
+**Real hoy:** versión `0.0.4`, un núcleo de planificación seguro por defecto probado en local (`LaserSafetySnapshot` + `LaserCellBridge`) apoyado en la puerta de trabajo compartida de `HYDRA-UMC-SDK`, normalización estricta de evidencia de seguridad en solo lectura, una batería `unittest` determinista de nueve pruebas, y scripts de build-test no mutantes conectados a CI con clonado del SDK.
 
 **Frontera de integración:** la carcasa, la llave y el enclavamiento certificados del propio controlador láser nunca se eluden; este puente solo controla trabajo robótico *auxiliar* a su alrededor, y únicamente leyendo su estado reportado.
 
@@ -146,14 +146,3 @@ Este proyecto forma parte de un ecosistema robótico más amplio del mismo autor
 
 ## 📜 LICENCIA
 GPL-3.0 - Ver LICENSE para más detalles.
-
-## 🛠️ COMPILACIÓN Y EJECUCIÓN
-
-Usa la comprobación de compilación sin versionado antes de una compilación de publicación:
-
-| Acción | Windows | Linux / macOS |
-|---|---|---|
-| Comprobación de compilación (sin cambio de versión ni CHANGELOG) | `build-test.bat` | `./build-test.sh` |
-| Ejecución / desarrollo (cuando exista) | `run*.bat` o `dev*.bat` | `./run*.sh` o `./dev*.sh` |
-
-`build-test.bat` y `build-test.sh` compilan o validan la pila del proyecto sin incrementar `hydra-umc.project.json` ni modificar `CHANGELOG.md`. Solo pueden generar salida normal del compilador. Los scripts `build*.bat`, `build*.sh`, `run*` y `dev*` existentes conservan su comportamiento propio del proyecto, versionado o en tiempo de ejecución; úsalos cuando se necesite ese comportamiento.

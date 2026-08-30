@@ -1,0 +1,31 @@
+<!-- =============================================================================
+HYDRA-UMC-BRIDGE-LASER - Technical bridge guide
+Copyright (C) 2026 JuanenRac (Electro Hobby 3D) <electrohobby3d@gmail.com>
+GPL-3.0-or-later - see LICENSE
+============================================================================= -->
+
+# HYDRA-UMC-BRIDGE-LASER Technical Guide
+
+## Scope and operating model
+
+`LaserSafetySnapshot` requires a literal idle state and three independently reported safeguards: key enabled, enclosure closed and interlock healthy. `observation.py` normalizes saved local evidence and treats every missing, numeric or text-like safeguard as unsafe. The bridge can gate external auxiliary work but cannot configure, arm or fire a laser.
+
+## Compatible software
+
+No live laser application/controller is integrated yet. The bridge is deliberately controller-neutral until a specific machine and documented safety interface are chosen. Future compatibility may target controller software that can expose independently certified state, key, enclosure and interlock observations; a generic G-code sender is not a valid laser safety adapter.
+
+## Scripts and verification
+
+| Script | Purpose | Changes version/CHANGELOG? |
+|---|---|---|
+| `build-test.bat` / `build-test.sh` | Compile and run local safety tests | No |
+| `build.bat` / `build.sh` | Validate, then increment version and CHANGELOG | Yes, after success |
+| `tools/inspect_controller_evidence.py` | Normalize a saved JSON capture only | No |
+
+## Adding a new script
+
+Use the standard header, state the non-arming scope, number console steps and add `pause` to `.bat`. Reusable parsing must be tested and compiled by `build-test`. No script may open a laser connection, modify safety configuration, upload a job, arm or fire a source.
+
+## Hardware acceptance gate
+
+Choose the controller and documented interface, validate signals against certified safety hardware, test stale/disconnected behavior, prove independent E-STOP and conduct dry HIL trials without active material. Only then can a separately reviewed controller adapter be considered.

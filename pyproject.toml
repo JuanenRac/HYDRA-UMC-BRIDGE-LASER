@@ -8,7 +8,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 [project]
 name = "hydra-umc-bridge-laser"
-version = "0.0.2"
+version = "0.0.4"
 description = "Fail-safe HYDRA-UMC laser-cell coordination boundary"
 requires-python = ">=3.11"
 license = {text = "GPL-3.0-or-later"}

@@ -32,6 +32,7 @@ It belongs to the **External Automation Bridges** family: a set of sibling repos
 * ✅ **Real four-signal safety snapshot:** `cell.py`'s `LaserSafetySnapshot.machine_state()` requires the key switch enabled, the enclosure closed **and** the interlock healthy simultaneously — any one missing resolves to `SAFE_STOP`, before `controller_state` is even read. *(implemented, tested in `tests/test_cell.py`)*
 * ✅ **Real shared safety gate:** every observed job is re-evaluated through `evaluate_job()` from `HYDRA-UMC-SDK`'s `bridge_contract`, the same gate every sibling bridge and HYDRA-UMC-SERVER use. *(implemented)*
 * ✅ **Conservative state mapping:** only `IDLE` is treated as idle; `RUN`/`RUNNING`/`PAUSED` map to `RUNNING`, `FAULT`/`ALARM`/`ERROR` map to `FAULT`, and anything unrecognized falls back to `OFFLINE`. *(implemented)*
+* ✅ **Read-only safety evidence:** `observation.py` accepts only genuine Boolean key, enclosure and interlock signals; missing, numeric or text-like values fail closed. It opens no controller connection and cannot arm or fire a laser. *(implemented, tested in `tests/test_observation.py`)*
 * ✅ **Non-mutating build/test:** `build-test.bat`/`.sh` compile the source and run the deterministic safety-gate test suite without touching version files or CHANGELOG. *(implemented, see BUILD & RUN below)*
 * 🔜 **Concrete laser controller/software integration** — deliberately deferred until the machine and its documented interface are available. *(planned)*
 
@@ -58,6 +59,8 @@ flowchart LR
 * **Why the choice of real laser software/controller is intentionally deferred.** Committing to a specific vendor interface before the machine and its documented interlock reporting are available would mean claiming a real safety guarantee this local core cannot verify.
 * **How this fits the rest of the ecosystem.** BRIDGE-LASER sits between the laser controller and `HYDRA-UMC-SDK` → `HYDRA-UMC-SERVER` → independent safety — it coordinates auxiliary robot work around the laser cell, it does not replace or override certified laser safety.
 
+The observation helper is an evidence normalizer, not a laser-controller adapter: it does not open a network or serial link, alter settings, upload jobs, arm or fire. [Laser Controller Evidence Boundary](docs/CONTROLLER_EVIDENCE_BOUNDARY.md) defines the validation required before a real integration.
+
 ---
 
 ## 📂 DIRECTORY STRUCTURE
@@ -67,9 +70,11 @@ HYDRA-UMC-BRIDGE-LASER/
 ├── src/
 │   └── hydra_umc_bridge_laser/
 │       ├── __init__.py
-│       └── cell.py              # LaserSafetySnapshot + LaserCellBridge safety gate
+│       ├── cell.py              # LaserSafetySnapshot + LaserCellBridge safety gate
+│       └── observation.py       # Read-only safety-evidence normalization
 ├── tests/
-│   └── test_cell.py             # Safe-idle admission, enclosure rejection, abort forwarding
+│   ├── test_cell.py             # Safe-idle admission, enclosure rejection, abort forwarding
+│   └── test_observation.py      # Missing safety evidence fails closed
 ├── tools/
 │   ├── build_test.py            # Non-mutating compile + test runner (build-test.bat/.sh)
 │   └── bump_version.py          # Synchronizes pyproject.toml, manifest and CHANGELOG.md
@@ -105,7 +110,7 @@ bash build.sh
 
 ## ✅ Current Status & Next Steps
 
-**Real today:** version `0.0.2`, a locally tested fail-safe planning core (`LaserSafetySnapshot` + `LaserCellBridge`) backed by `HYDRA-UMC-SDK`'s shared job gate, a deterministic `unittest` suite, and non-mutating build-test scripts wired into CI with an SDK checkout.
+**Real today:** version `0.0.4`, a locally tested fail-safe planning core (`LaserSafetySnapshot` + `LaserCellBridge`) backed by `HYDRA-UMC-SDK`'s shared job gate, strict read-only safety-evidence normalization, an nine-test deterministic `unittest` suite, and non-mutating build-test scripts wired into CI with an SDK checkout.
 
 **Integration boundary:** the laser controller's own certified enclosure, key-switch and interlock authority is never bypassed; this bridge only ever gates *auxiliary* robot work around it, and only by reading its reported state.
 
@@ -146,14 +151,3 @@ This project is part of a larger robotics ecosystem by the same author (JuanenRa
 
 ## 📜 LICENSE
 GPL-3.0 - See LICENSE for details.
-
-## 🛠️ BUILD & RUN
-
-Use the non-versioning build check before a release build:
-
-| Action | Windows | Linux / macOS |
-|---|---|---|
-| Build check (no version or CHANGELOG change) | `build-test.bat` | `./build-test.sh` |
-| Run / development (when provided) | `run*.bat` or `dev*.bat` | `./run*.sh` or `./dev*.sh` |
-
-`build-test.bat` and `build-test.sh` compile or validate the project stack without incrementing `hydra-umc.project.json` or modifying `CHANGELOG.md`. They may create normal compiler output only. Existing `build*.bat`, `build*.sh`, `run*` and `dev*` scripts retain their project-specific, versioned or runtime behavior; use them when that behavior is required.
