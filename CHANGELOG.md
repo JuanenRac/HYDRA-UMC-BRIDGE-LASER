@@ -6,6 +6,23 @@ GPL-3.0-or-later - see LICENSE
 
 # Changelog
 
+## [0.0.7] - Real MQTT transport over the real broker
+
+- **`mqtt_transport.py`** (new) - reaches this bridge's already-real logic
+  (`GpioSafetyProbe.read_snapshot`, `LaserCellBridge.plan`) over
+  `HYDRA-UMC-MQTT-BROKER`, per the ecosystem's own "MQTT via the real
+  broker, real commands included" decision. Unlike the sibling CNC/
+  PRINTER3D bridges this exposes no real actuation command - this bridge
+  cannot arm or fire a laser either way - so `LaserMqttBridge` only routes
+  `hydra/bridges/laser/cmd/{status,job}`, publishing `hydra/bridges/laser/
+  state` (retained) and `.../cmd/job/result`. `handle_message()` is a
+  pure(ish) topic dispatcher over 3 real `GpioLineReader`s - fully
+  testable with the same in-memory fake `test_gpio_safety.py` already
+  uses, no real broker or GPIO chip required. `run_forever()` is the thin
+  real-I/O glue, lazily importing the new optional `paho-mqtt` dependency
+  the same way `open_gpio_safety_lines()` already lazily imports `gpiod`.
+  13 new tests.
+
 ## [0.0.6] - Real, controller-neutral GPIO interlock reading (pre-real: connected, not simulated)
 
 - **`gpio_safety.py`** (new) - this bridge's first real transport:

@@ -7,6 +7,7 @@
 
 from .cell import LaserCellBridge, LaserSafetySnapshot
 from .gpio_safety import GpioLineReader, GpioSafetyLines, GpioSafetyProbe, open_gpio_safety_lines
+from .mqtt_transport import LaserMqttBridge, MqttPublish, run_forever
 from .observation import snapshot_from_fresh_mapping, snapshot_from_mapping
 
 __all__ = [
@@ -18,4 +19,7 @@ __all__ = [
     "GpioSafetyLines",
     "GpioLineReader",
     "open_gpio_safety_lines",
+    "LaserMqttBridge",
+    "MqttPublish",
+    "run_forever",
 ]
