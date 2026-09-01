@@ -127,6 +127,7 @@ This project is part of a larger robotics ecosystem by the same author (JuanenRa
 
 - **[HYDRA-UMC-SDK](https://github.com/JuanenRac/HYDRA-UMC-SDK)** — the shared `bridge_contract` job gate every bridge (including this one) evaluates jobs through.
 - **[HYDRA-UMC-SERVER](https://github.com/JuanenRac/HYDRA-UMC-SERVER)** — the authorised cell boundary this bridge reports to.
+- **[HYDRA-UMC-MQTT-BROKER](https://github.com/JuanenRac/HYDRA-UMC-MQTT-BROKER)** — `mqtt_transport.py`'s real transport for this bridge's own `hydra/bridges/laser/...` topics (safeguard status + the shared job gate - no real actuation command exists here, this bridge can't arm or fire a laser either way) - see that repo's own `docs/BRIDGE_TOPICS.md`.
 - **[HYDRA-UMC-SAFETY-ZONES](https://github.com/JuanenRac/HYDRA-UMC-SAFETY-ZONES)** — future cell-zone safety evidence.
 
 ### Rest of the Ecosystem
