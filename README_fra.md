@@ -32,6 +32,8 @@ Il appartient à la famille **External Automation Bridges** : un ensemble de dé
 * ✅ **Instantané de sécurité à quatre signaux, réel :** `cell.py` — `LaserSafetySnapshot.machine_state()` exige que la clé soit activée, l'enceinte fermée **et** l'interverrouillage sain simultanément ; l'absence de l'un d'eux résout en `SAFE_STOP`, avant même la lecture de `controller_state`. *(implémenté, testé dans `tests/test_cell.py`)*
 * ✅ **Portail de sécurité partagé, réel :** chaque tâche observée est réévaluée via `evaluate_job()` du `bridge_contract` de `HYDRA-UMC-SDK`, le même portail utilisé par tous les ponts frères et HYDRA-UMC-SERVER. *(implémenté)*
 * ✅ **Mappage d'état conservateur :** seul `IDLE` est traité comme repos ; `RUN`/`RUNNING`/`PAUSED` sont mappés vers `RUNNING`, `FAULT`/`ALARM`/`ERROR` vers `FAULT`, et toute valeur non reconnue retombe sur `OFFLINE`. *(implémenté)*
+* ✅ **Preuve de sécurité en lecture seule :** `observation.py` n'accepte que des signaux booléens authentiques pour la clé, l'enceinte et l'interverrouillage ; les valeurs manquantes, numériques ou de type texte échouent en mode sécurisé. Il ne peut ni armer ni déclencher un laser. *(implémenté, testé dans `tests/test_observation.py`)*
+* ✅ **Lecture GPIO réelle et neutre vis-à-vis du contrôleur :** `GpioSafetyProbe` de `gpio_safety.py` lit ces 3 mêmes protections indépendantes depuis de vraies lignes GPIO (libgpiod v2) plutôt qu'un mappage enregistré - délibérément agnostique au contrôleur, puisqu'une clé/un capteur de porte/un relais d'interverrouillage est universel sur les découpeuses laser quelle que soit la marque. Un échec de lecture GPIO fait échouer les 3 protections en mode sécurisé. *(implémenté, testé dans `tests/test_gpio_safety.py`)*
 * ✅ **Build/test non mutant :** `build-test.bat`/`.sh` compilent le code source et exécutent la suite de tests du portail de sécurité sans toucher aux fichiers de version ni au CHANGELOG. *(implémenté, voir COMPILATION & EXÉCUTION ci-dessous)*
 * 🔜 **Intégration concrète avec un contrôleur/logiciel laser** — délibérément reportée jusqu'à ce que la machine et son interface documentée soient disponibles. *(prévu)*
 
@@ -121,6 +123,7 @@ Ce projet fait partie d'un écosystème robotique plus large du même auteur (Ju
 
 - **[HYDRA-UMC-SDK](https://github.com/JuanenRac/HYDRA-UMC-SDK)** — le portail de tâches partagé `bridge_contract` à travers lequel ce pont (et tous les autres) évalue ses tâches.
 - **[HYDRA-UMC-SERVER](https://github.com/JuanenRac/HYDRA-UMC-SERVER)** — la frontière de cellule autorisée à laquelle ce pont rend compte.
+- **[HYDRA-UMC-MQTT-BROKER](https://github.com/JuanenRac/HYDRA-UMC-MQTT-BROKER)** — le transport réel de `mqtt_transport.py` pour les topics `hydra/bridges/laser/...` propres à ce pont (état des protections + le portail de travail partagé - aucune commande d'actionnement réelle n'existe ici, ce pont ne peut pas non plus armer ni déclencher un laser) - voir le `docs/BRIDGE_TOPICS.md` de ce dépôt.
 - **[HYDRA-UMC-SAFETY-ZONES](https://github.com/JuanenRac/HYDRA-UMC-SAFETY-ZONES)** — future preuve de sécurité de zone de cellule.
 
 ### Reste de l'écosystème

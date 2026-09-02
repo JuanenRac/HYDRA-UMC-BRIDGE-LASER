@@ -32,6 +32,8 @@ GPL-3.0-or-later - see LICENSE
 * ✅ **真实的四信号安全快照:** `cell.py` 中的 `LaserSafetySnapshot.machine_state()` 要求钥匙开关启用、防护罩关闭**且**联锁状态健康这三者同时成立;只要缺少任何一项,甚至在读取 `controller_state` 之前就会解析为 `SAFE_STOP`。*(已实现,并在 `tests/test_cell.py` 中测试)*
 * ✅ **真实的共享安全门控:** 每个被观察到的任务都会通过 `HYDRA-UMC-SDK` 的 `bridge_contract` 中的 `evaluate_job()` 重新评估,这与所有兄弟桥接以及 HYDRA-UMC-SERVER 使用的是同一个门控。*(已实现)*
 * ✅ **保守的状态映射:** 只有 `IDLE` 被视为空闲;`RUN`/`RUNNING`/`PAUSED` 映射为 `RUNNING`,`FAULT`/`ALARM`/`ERROR` 映射为 `FAULT`,任何无法识别的值都会回落到 `OFFLINE`。*(已实现)*
+* ✅ **只读安全证据:** `observation.py` 只接受钥匙、防护罩和联锁的真实布尔信号;缺失、数值型或文本型的值都会安全失效关闭。它既不能使激光武装,也不能触发激光。*(已实现,在 `tests/test_observation.py` 中测试)*
+* ✅ **真实的、与控制器无关的 GPIO 联锁读取:** `gpio_safety.py` 的 `GpioSafetyProbe` 直接从真实的 GPIO 线路(libgpiod v2)读取这 3 项独立防护,而不是依赖保存的映射——刻意做到与控制器无关,因为钥匙开关/门传感器/联锁继电器在各品牌激光切割机上都是通用的。GPIO 读取失败会使这 3 项防护全部安全失效关闭。*(已实现,在 `tests/test_gpio_safety.py` 中测试)*
 * ✅ **非变更式构建/测试:** `build-test.bat`/`.sh` 编译源码并运行安全门控测试套件,不会触碰版本文件或 CHANGELOG。*(已实现,见下方"构建与运行")*
 * 🔜 **具体的激光控制器/软件集成** —— 刻意推迟,直到设备及其文档化接口就绪。*(计划中)*
 
@@ -121,6 +123,7 @@ bash build.sh
 
 - **[HYDRA-UMC-SDK](https://github.com/JuanenRac/HYDRA-UMC-SDK)** —— 共享的 `bridge_contract` 任务门控,本桥接(以及所有其他桥接)都通过它评估任务。
 - **[HYDRA-UMC-SERVER](https://github.com/JuanenRac/HYDRA-UMC-SERVER)** —— 本桥接汇报的经过授权的单元边界。
+- **[HYDRA-UMC-MQTT-BROKER](https://github.com/JuanenRac/HYDRA-UMC-MQTT-BROKER)** —— 为本桥自身的 `hydra/bridges/laser/...` 主题(防护状态 + 共享作业门控——这里没有真正的驱动命令,本桥同样无法使激光武装或触发)提供的 `mqtt_transport.py` 真实传输 - 详见该仓库自身的 `docs/BRIDGE_TOPICS.md`。
 - **[HYDRA-UMC-SAFETY-ZONES](https://github.com/JuanenRac/HYDRA-UMC-SAFETY-ZONES)** —— 未来的单元区域安全证据。
 
 ### 生态系统的其余部分

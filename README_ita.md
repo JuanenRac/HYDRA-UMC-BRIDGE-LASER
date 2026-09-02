@@ -32,7 +32,9 @@ Appartiene alla famiglia **External Automation Bridges**: un insieme di reposito
 * ✅ **Snapshot di sicurezza a quattro segnali, reale:** `cell.py` — `LaserSafetySnapshot.machine_state()` richiede che la chiave sia abilitata, l'involucro chiuso **e** l'interblocco sano contemporaneamente; se anche solo uno manca, si risolve in `SAFE_STOP` ancor prima di leggere `controller_state`. *(implementato, testato in `tests/test_cell.py`)*
 * ✅ **Porta di sicurezza condivisa, reale:** ogni lavoro osservato viene rivalutato tramite `evaluate_job()` del `bridge_contract` di `HYDRA-UMC-SDK`, la stessa porta usata da tutti i ponti fratelli e da HYDRA-UMC-SERVER. *(implementato)*
 * ✅ **Mappatura di stato conservativa:** solo `IDLE` è trattato come riposo; `RUN`/`RUNNING`/`PAUSED` vengono mappati su `RUNNING`, `FAULT`/`ALARM`/`ERROR` su `FAULT`, e qualsiasi valore non riconosciuto ricade su `OFFLINE`. *(implementato)*
-* ✅ **Build/test non mutante:** `build-test.bat`/`.sh` compilano il codice sorgente ed eseguono la suite di test della porta di sicurezza senza toccare i file di versione o il CHANGELOG. *(implementato, vedi COMPILAZIONE ED ESECUZIONE più snove)*
+* ✅ **Evidenza di sicurezza in sola lettura:** `observation.py` accetta solo segnali booleani genuini per chiave, involucro e interblocco; valori mancanti, numerici o di tipo testo falliscono in modo sicuro. Non può armare né azionare un laser. *(implementato, testato in `tests/test_observation.py`)*
+* ✅ **Lettura GPIO reale e neutrale rispetto al controllore:** `GpioSafetyProbe` di `gpio_safety.py` legge le stesse 3 protezioni indipendenti da vere linee GPIO (libgpiod v2) invece che da una mappatura salvata - deliberatamente agnostico rispetto al controllore, poiché un interruttore a chiave/sensore porta/relè di interblocco è universale sulle taglierine laser indipendentemente dalla marca. Un fallimento di lettura GPIO fa fallire in modo sicuro tutte e 3 le protezioni. *(implementato, testato in `tests/test_gpio_safety.py`)*
+* ✅ **Build/test non mutante:** `build-test.bat`/`.sh` compilano il codice sorgente ed eseguono la suite di test della porta di sicurezza senza toccare i file di versione o il CHANGELOG. *(implementato, vedi COMPILAZIONE ED ESECUZIONE più sotto)*
 * 🔜 **Integrazione concreta con controllore/software laser** — deliberatamente rimandata fino a quando la macchina e la sua interfaccia documentata non saranno disponibili. *(pianificato)*
 
 ---
@@ -99,7 +101,7 @@ bash build-test.sh
 bash build.sh
 ```
 
-`build-test` compila ogni modulo snove `src/` con `py_compile` ed esegue l'intera suite `unittest` (`tests/test_cell.py`), dimostrando l'ammissione in riposo sicuro, il rifiuto involucro e l'inoltro dell'abort — non modifica mai il repository. `build` esegue prima quella stessa validazione e, solo in caso di successo, chiama `tools/bump_version.py` per sincronizzare la versione in `pyproject.toml`, `hydra-umc.project.json` e `CHANGELOG.md`. Non esiste ancora un comando `run` laser reale — serve un'integrazione del controllore validata e sicura.
+`build-test` compila ogni modulo sotto `src/` con `py_compile` ed esegue l'intera suite `unittest` (`tests/test_cell.py`), dimostrando l'ammissione in riposo sicuro, il rifiuto involucro e l'inoltro dell'abort — non modifica mai il repository. `build` esegue prima quella stessa validazione e, solo in caso di successo, chiama `tools/bump_version.py` per sincronizzare la versione in `pyproject.toml`, `hydra-umc.project.json` e `CHANGELOG.md`. Non esiste ancora un comando `run` laser reale — serve un'integrazione del controllore validata e sicura.
 
 ---
 
@@ -121,6 +123,7 @@ Questo progetto fa parte di un ecosistema robotico più ampio dello stesso autor
 
 - **[HYDRA-UMC-SDK](https://github.com/JuanenRac/HYDRA-UMC-SDK)** — la porta di lavoro condivisa `bridge_contract` attraverso cui questo ponte (e tutti gli altri) valuta i propri lavori.
 - **[HYDRA-UMC-SERVER](https://github.com/JuanenRac/HYDRA-UMC-SERVER)** — il confine di cella autorizzato a cui questo ponte riporta.
+- **[HYDRA-UMC-MQTT-BROKER](https://github.com/JuanenRac/HYDRA-UMC-MQTT-BROKER)** — il trasporto reale di `mqtt_transport.py` per i topic `hydra/bridges/laser/...` propri di questo ponte (stato delle protezioni + la porta di lavoro condivisa - qui non esiste alcun comando di attuazione reale, anche questo ponte non può armare né azionare un laser) - vedi il `docs/BRIDGE_TOPICS.md` di quel repository.
 - **[HYDRA-UMC-SAFETY-ZONES](https://github.com/JuanenRac/HYDRA-UMC-SAFETY-ZONES)** — futura evidenza di sicurezza della zona di cella.
 
 ### Resto dell'ecosistema
