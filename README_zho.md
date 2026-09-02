@@ -69,12 +69,23 @@ HYDRA-UMC-BRIDGE-LASER/
 ├── src/
 │   └── hydra_umc_bridge_laser/
 │       ├── __init__.py
-│       └── cell.py              # LaserSafetySnapshot + LaserCellBridge 安全门控
+│       ├── cell.py              # LaserSafetySnapshot + LaserCellBridge 安全门控
+│       ├── observation.py       # 只读的安全证据归一化
+│       ├── gpio_safety.py       # 通过 GPIO 读取 3 个真实的独立安全信号 - 绝非激光命令
+│       └── mqtt_transport.py    # 真实 MQTT broker 传输 - 仅状态/证据,此 bridge 无法启动或触发激光
 ├── tests/
-│   └── test_cell.py             # 安全空闲准入、防护罩拒绝、中止转发
+│   ├── test_cell.py             # 安全空闲准入、防护罩拒绝、中止转发
+│   ├── test_observation.py      # 缺失安全证据时 fail-closed 失败
+│   ├── test_gpio_safety.py      # 针对模拟芯片的真实 GPIO 安全读取测试,含 fail-closed 路径
+│   └── test_mqtt_transport.py   # 针对模拟 broker 客户端的 MQTT 状态/证据格式测试
 ├── tools/
 │   ├── build_test.py            # 非变更式编译 + 测试运行器 (build-test.bat/.sh)
 │   └── bump_version.py          # 同步 pyproject.toml、清单和 CHANGELOG.md
+├── docs/
+│   ├── BRIDGE_GUIDE.md                    # 范围、兼容平台、脚本、硬件验收门控
+│   └── CONTROLLER_EVIDENCE_BOUNDARY.md    # 什么算作真实安全证据,以及此 bridge 拒绝推断的内容
+├── images/
+│   └── HYDRA_UMC_BANNER.svg     # README 横幅图
 ├── build-test.bat / build-test.sh  # 仅验证,绝不修改仓库
 ├── build.bat / build.sh            # 先验证,成功后才更新版本 + CHANGELOG
 ├── pyproject.toml               # 包元数据;依赖 HYDRA-UMC-SDK (git)

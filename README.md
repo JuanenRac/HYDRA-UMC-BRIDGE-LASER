@@ -72,13 +72,22 @@ HYDRA-UMC-BRIDGE-LASER/
 │   └── hydra_umc_bridge_laser/
 │       ├── __init__.py
 │       ├── cell.py              # LaserSafetySnapshot + LaserCellBridge safety gate
-│       └── observation.py       # Read-only safety-evidence normalization
+│       ├── observation.py       # Read-only safety-evidence normalization
+│       ├── gpio_safety.py       # Reads the 3 real independent safeguard signals over GPIO - never a laser command
+│       └── mqtt_transport.py    # Real MQTT broker transport - status/evidence only, this bridge cannot arm or fire a laser
 ├── tests/
 │   ├── test_cell.py             # Safe-idle admission, enclosure rejection, abort forwarding
-│   └── test_observation.py      # Missing safety evidence fails closed
+│   ├── test_observation.py      # Missing safety evidence fails closed
+│   ├── test_gpio_safety.py      # Real GPIO safeguard reads against a fake chip, incl. fail-closed paths
+│   └── test_mqtt_transport.py   # MQTT status/evidence shape tests against a fake broker client
 ├── tools/
 │   ├── build_test.py            # Non-mutating compile + test runner (build-test.bat/.sh)
 │   └── bump_version.py          # Synchronizes pyproject.toml, manifest and CHANGELOG.md
+├── docs/
+│   ├── BRIDGE_GUIDE.md                    # Scope, compatible platforms, scripts, hardware acceptance gate
+│   └── CONTROLLER_EVIDENCE_BOUNDARY.md    # What counts as real safety evidence vs. what this bridge refuses to infer
+├── images/
+│   └── HYDRA_UMC_BANNER.svg     # README banner
 ├── build-test.bat / build-test.sh  # Validate only, never modifies the repository
 ├── build.bat / build.sh            # Validate, then bump version + CHANGELOG on success
 ├── pyproject.toml               # Package metadata; depends on HYDRA-UMC-SDK (git)

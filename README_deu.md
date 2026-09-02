@@ -69,12 +69,23 @@ HYDRA-UMC-BRIDGE-LASER/
 ├── src/
 │   └── hydra_umc_bridge_laser/
 │       ├── __init__.py
-│       └── cell.py              # Sicherheitsgatter LaserSafetySnapshot + LaserCellBridge
+│       ├── cell.py              # Sicherheitsgatter LaserSafetySnapshot + LaserCellBridge
+│       ├── observation.py       # Nur-Lese-Normalisierung der Sicherheitsnachweise
+│       ├── gpio_safety.py       # Liest die 3 echten unabhängigen Schutzsignale über GPIO - niemals ein Laserbefehl
+│       └── mqtt_transport.py    # Echter MQTT-Broker-Transport - nur Status/Nachweis, diese Bridge kann keinen Laser scharfschalten oder auslösen
 ├── tests/
-│   └── test_cell.py             # Zulassung im sicheren Leerlauf, Gehäuse-Ablehnung, Abbruchweiterleitung
+│   ├── test_cell.py             # Zulassung im sicheren Leerlauf, Gehäuse-Ablehnung, Abbruchweiterleitung
+│   ├── test_observation.py      # Fehlende Sicherheitsnachweise schlagen fail-closed fehl
+│   ├── test_gpio_safety.py      # Echte GPIO-Sicherheitslesungen gegen einen simulierten Chip, inkl. Fail-Closed-Pfade
+│   └── test_mqtt_transport.py   # MQTT-Status-/Nachweisform-Tests gegen einen simulierten Broker-Client
 ├── tools/
 │   ├── build_test.py            # Nicht-mutierender Compiler + Testläufer (build-test.bat/.sh)
 │   └── bump_version.py          # Synchronisiert pyproject.toml, Manifest und CHANGELOG.md
+├── docs/
+│   ├── BRIDGE_GUIDE.md                    # Umfang, kompatible Plattformen, Skripte, Hardware-Abnahmegatter
+│   └── CONTROLLER_EVIDENCE_BOUNDARY.md    # Was als echter Sicherheitsnachweis zählt und was diese Bridge nicht ableitet
+├── images/
+│   └── HYDRA_UMC_BANNER.svg     # README-Banner
 ├── build-test.bat / build-test.sh  # Validiert nur, ändert das Repository nie
 ├── build.bat / build.sh            # Validiert und erhöht bei Erfolg Version + CHANGELOG
 ├── pyproject.toml               # Paket-Metadaten; hängt von HYDRA-UMC-SDK ab (git)
