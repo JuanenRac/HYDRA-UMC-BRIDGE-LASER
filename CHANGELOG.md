@@ -61,7 +61,7 @@ GPL-3.0-or-later - see LICENSE
   way - only the accuracy of the reported state.
 - 2 new regression tests - 12/12 tests passing.
 
-## [0.0.4] - 2026-08-30
+## [0.0.4]
 
 - Added `docs/BRIDGE_GUIDE.md`, defining controller-neutral safety scope,
   script conventions and the laser hardware acceptance gate.
@@ -71,7 +71,7 @@ GPL-3.0-or-later - see LICENSE
 - Added CLI contract coverage; the full suite now has nine tests.
 - Synchronized package metadata, ecosystem manifest and all seven README files.
 
-## [0.0.3] - 2026-08-30
+## [0.0.3]
 
 - Added read-only normalization of external laser-safety evidence without a
   controller connection, upload, arming or firing path.
@@ -80,7 +80,7 @@ GPL-3.0-or-later - see LICENSE
 - Added four deterministic evidence-boundary tests; the suite now has eight
   tests. Package metadata, manifest and all seven README files are synchronized.
 
-## [0.0.2] - 2026-08-30
+## [0.0.2]
 
 - Made an unexpected non-text controller state fail safe as `OFFLINE` instead
   of raising while evaluating the laser cell boundary.
