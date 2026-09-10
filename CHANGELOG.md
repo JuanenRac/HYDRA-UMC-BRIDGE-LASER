@@ -38,8 +38,7 @@ after a key-off is gated against the live snapshot, not a stale one
 
 ## [0.0.8] - LASER-01: real interlocks are re-read live before every job
 
-- **LASER-01 (found in an ecosystem-wide software-improvements audit,
-  P0):** `cmd/job` reused `self._last_snapshot` - whatever
+- **LASER-01 (P0):** `cmd/job` reused `self._last_snapshot` - whatever
   key/enclosure/interlock state was last queried, possibly from an
   unrelated `cmd/status` poll seconds or minutes earlier - instead of
   re-reading the real, current 3 GPIO safeguards right before gating a
@@ -55,7 +54,7 @@ after a key-off is gated against the live snapshot, not a stale one
   (32 total, up from 31) - explicit regressions for both the dangerous
   direction (stale-safe masking a real open enclosure) and the safe
   direction (stale-unsafe no longer blocking a now-genuinely-safe job).
-- **LANG-07 (found in the same audit):** the English README's own
+- **LANG-07:** the English README's own
   "observation helper is an evidence normalizer" paragraph, linking
   `docs/CONTROLLER_EVIDENCE_BOUNDARY.md`, was missing from all 6
   translations even though the file was already listed in each one's own
@@ -72,8 +71,7 @@ after a key-off is gated against the live snapshot, not a stale one
   mechanically without a hand-written entry replacing the stub first).
   Repo-hygiene fix, no runtime code changed, no version bump.
 - **`run_forever()`'s initial MQTT connect now retries with backoff**
-  (`connect_with_retry()`, new) - found in an ecosystem-wide
-  software-improvements audit: this bridge's process used to die
+  (`connect_with_retry()`, new) - this bridge's process used to die
   outright if it started before HYDRA-UMC-MQTT-BROKER was listening yet,
   a real race between two independent systemd units with no ordering
   guarantee across a reboot. Only `OSError` (what an unreachable broker

@@ -94,8 +94,8 @@ class LaserMqttBridge:
     def refresh_status(self) -> LaserSafetySnapshot:
         """Re-read the 3 real GPIO safeguards now.
 
-        LASER-01 (found in an ecosystem-wide software-improvements audit,
-        same real gap as sibling HYDRA-UMC-BRIDGE-CNC's own CNC-01): this
+        LASER-01 (same real gap as sibling HYDRA-UMC-BRIDGE-CNC's own
+        CNC-01): this
         used to cache its result in `self._last_snapshot` for `cmd/job` to
         reuse instead of reading the 3 real GPIO lines again - a real
         enclosure/key/interlock change between two messages went unnoticed
@@ -147,8 +147,7 @@ def connect_with_retry(
     raises - connection refused, timeout), tolerating the real startup
     race a systemd unit for this bridge hits if it starts before
     HYDRA-UMC-MQTT-BROKER is listening yet (both are independent systemd
-    units with no ordering guarantee across a real reboot - found in an
-    ecosystem-wide software-improvements audit). Only OSError is retried;
+    units with no ordering guarantee across a real reboot). Only OSError is retried;
     anything else is a real bug, not a transient startup race, and
     propagates immediately. `sleep` is injectable so tests can prove the
     retry/give-up behavior without a real multi-second wait."""
