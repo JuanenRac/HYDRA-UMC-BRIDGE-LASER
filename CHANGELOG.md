@@ -6,6 +6,36 @@ GPL-3.0-or-later - see LICENSE
 
 # Changelog
 
+## [0.0.9] - A libgpiod-shaped GPIO chip + a real MQTT broker emulator, not FakeLine + a list
+
+Until now the doubles here were `FakeLine` (a fixed bool, or one that
+raises) and a bare `list` of `MqttPublish`. New
+`tests/gpio_mqtt_emulator.py`:
+
+  * `GpioChipEmulator` - three real independent `GpioLineReader` lines
+    (`key_switch`/`enclosure_door`/`interlock_relay`) with an `active_low`
+    option per line (real interlock hardware is very often wired
+    active-low - "safe" = logic 0 - so the wire value is inverted before
+    it becomes the boolean the bridge reads; a `FakeLine(True)` never
+    captures that), physical-side drivers
+    (`turn_key`/`open_enclosure`/`close_enclosure`/`set_interlock_healthy`),
+    and `fault_chip()` making every read raise `OSError` so a test proves
+    the bridge fails closed on an unplugged/offline chip.
+  * `MqttBrokerEmulator` - a real retained-message store, `+`/`#` wildcard
+    subscription matching, a new subscription replaying the matching
+    retained message (`hydra/bridges/laser/state` is published RETAINED
+    for exactly this), and `pump(bridge)` doing a real broker round trip
+    (queued `cmd/#` -> `handle_message()` -> re-publish, retained store
+    updated).
+
+New `tests/test_gpio_mqtt_emulator.py` (8 tests): `cmd/status` publishes
+a real retained `state` from the live GPIO lines; opening the enclosure
+moves the next state to `SAFE_STOP`; a late subscriber still gets the
+current retained safety state; a faulted chip fails closed; active-low
+interlock wiring reads healthy at logic 0; and a job arriving right
+after a key-off is gated against the live snapshot, not a stale one
+(LASER-01) - all through the real message flow. 40 tests total.
+
 ## [0.0.8] - LASER-01: real interlocks are re-read live before every job
 
 - **LASER-01 (found in an ecosystem-wide software-improvements audit,
