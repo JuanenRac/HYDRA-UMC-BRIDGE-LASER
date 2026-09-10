@@ -79,10 +79,14 @@ HYDRA-UMC-BRIDGE-LASER/
 │   ├── test_cell.py             # Admisión en reposo seguro, rechazo por carcasa, reenvío de aborto
 │   ├── test_observation.py      # La evidencia de seguridad ausente falla cerrado
 │   ├── test_gpio_safety.py      # Lecturas reales de seguridad GPIO contra un chip simulado, incl. rutas fail-closed
-│   └── test_mqtt_transport.py   # Tests de forma de estado/evidencia MQTT contra un cliente de broker simulado
+│   ├── test_mqtt_transport.py   # Tests de forma de estado/evidencia MQTT contra un cliente de broker simulado
+│   ├── gpio_mqtt_emulator.py    # Emulador de GPIO/MQTT fiel al protocolo (doble de prueba realista)
+│   └── test_gpio_mqtt_emulator.py # Comportamiento del bridge frente al emulador GPIO/MQTT
 ├── tools/
 │   ├── build_test.py            # Compilador + ejecutor de pruebas no mutante (build-test.bat/.sh)
-│   └── bump_version.py          # Sincroniza pyproject.toml, manifiesto y CHANGELOG.md
+│   ├── bump_version.py          # Sincroniza pyproject.toml, manifiesto y CHANGELOG.md
+│   ├── ci_validate.py           # Línea base de CI sin dependencias y no destructiva (usada por .github/workflows/ci.yml)
+│   └── inspect_controller_evidence.py # Normaliza un archivo JSON de evidencia local guardado (sin abrir enlace)
 ├── docs/
 │   ├── BRIDGE_GUIDE.md                    # Alcance, plataformas compatibles, scripts, puerta de aceptación de hardware
 │   └── CONTROLLER_EVIDENCE_BOUNDARY.md    # Qué cuenta como evidencia de seguridad real y qué se niega a inferir este bridge
