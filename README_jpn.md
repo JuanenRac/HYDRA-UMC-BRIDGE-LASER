@@ -79,10 +79,14 @@ HYDRA-UMC-BRIDGE-LASER/
 │   ├── test_cell.py             # 安全アイドル許可、エンクロージャー拒否、中止転送
 │   ├── test_observation.py      # 安全性の証拠が欠けている場合はfail-closedで失敗する
 │   ├── test_gpio_safety.py      # 疑似チップに対する実GPIO安全読み取りテスト(fail-closedパスを含む)
-│   └── test_mqtt_transport.py   # 疑似ブローカークライアントに対するMQTTステータス/証拠形状テスト
+│   ├── test_mqtt_transport.py   # 疑似ブローカークライアントに対するMQTTステータス/証拠形状テスト
+│   ├── gpio_mqtt_emulator.py    # プロトコル忠実な GPIO/MQTT エミュレータ（現実的なテストダブル）
+│   └── test_gpio_mqtt_emulator.py # GPIO/MQTT エミュレータに対する bridge の振る舞い
 ├── tools/
 │   ├── build_test.py            # 非破壊的なコンパイル+テストランナー (build-test.bat/.sh)
-│   └── bump_version.py          # pyproject.toml、マニフェスト、CHANGELOG.md を同期
+│   ├── bump_version.py          # pyproject.toml、マニフェスト、CHANGELOG.md を同期
+│   ├── ci_validate.py           # 依存関係なし・非破壊のCIベースライン (.github/workflows/ci.yml が使用)
+│   └── inspect_controller_evidence.py # 保存済みのローカル証拠 JSON ファイルを正規化する（接続を開かない）
 ├── docs/
 │   ├── BRIDGE_GUIDE.md                    # 適用範囲、対応プラットフォーム、スクリプト、ハードウェア受け入れゲート
 │   └── CONTROLLER_EVIDENCE_BOUNDARY.md    # 何が実際の安全性の証拠とみなされ、このbridgeが何を推測しないか
