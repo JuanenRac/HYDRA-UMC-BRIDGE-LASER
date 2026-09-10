@@ -90,8 +90,7 @@ class JobCommandTests(unittest.TestCase):
         self.assertTrue(json.loads(publishes[0].payload)["allowed"])
 
     def test_a_job_always_re_reads_the_real_gpio_lines_even_if_one_was_cached(self):
-        # LASER-01 regression (found in an ecosystem-wide
-        # software-improvements audit): this used to reuse whatever
+        # LASER-01 regression: this used to reuse whatever
         # refresh_status() last saw instead of reading the real GPIO
         # lines again - even after an explicit earlier refresh_status()
         # call, handle_message() must still re-read live right before
@@ -105,7 +104,7 @@ class JobCommandTests(unittest.TestCase):
         self.assertTrue(json.loads(publishes[0].payload)["allowed"])
 
     def test_a_job_refuses_a_real_enclosure_open_between_refresh_and_job_regression_for_laser_01(self):
-        # The exact real reproduction from the audit: enclosure closed at
+        # The exact real reproduction: enclosure closed at
         # an earlier refresh, then it opens before a job command actually
         # arrives - the job must never be allowed on the stale reading.
         b = bridge(enclosure=True)
@@ -132,8 +131,7 @@ class RunForeverTests(unittest.TestCase):
 
 class ConnectWithRetryTests(unittest.TestCase):
     """connect_with_retry() is pure - no real paho-mqtt/broker needed to
-    prove the real startup-race tolerance an ecosystem-wide software
-    audit found missing here (this bridge's process used to die outright
+    prove the real startup-race tolerance that was missing here (this bridge's process used to die outright
     if it started before HYDRA-UMC-MQTT-BROKER was listening yet)."""
 
     def test_succeeds_on_the_first_try_without_sleeping(self):
