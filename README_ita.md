@@ -22,6 +22,10 @@ GPL-3.0-or-later - see LICENSE
 
 ---
 
+> **Verifica di onestà - cosa funziona davvero oggi:** lo snapshot di sicurezza a quattro segnali e il suo gate (`cell.py` con `LaserSafetySnapshot`/`LaserCellBridge`, che fa passare ogni lavoro attraverso il vero `evaluate_job()` di `HYDRA-UMC-SDK`), il normalizzatore di evidenze di sola lettura (`observation.py`), il vero lettore di interblocco GPIO (`gpio_safety.py` con `GpioSafetyProbe`, libgpiod v2), e il trasporto MQTT di stato/evidenza (`mqtt_transport.py`) sono reali e coperti da 40 casi `unittest` superati (`python tools/build_test.py`), incluso `tests/test_gpio_mqtt_emulator.py`, che esegue questo bridge contro un emulatore GPIO/MQTT fedele al protocollo ma scritto a mano. Nulla di tutto ciò ha toccato un vero chip GPIO, un vero broker MQTT, o un vero controller laser - `test_gpio_safety.py` legge contro un chip fittizio e `test_mqtt_transport.py` usa un client broker fittizio. Non esiste ancora un'integrazione concreta con software/controller laser, perché la macchina e la sua interfaccia documentata non sono disponibili - vedi "Stato attuale e prossimi passi" qui sotto, che lo dice già chiaramente, e `CHANGELOG.md` per cosa è stato esattamente consegnato finora.
+
+---
+
 ## 1. 🛠️ PANORAMICA TECNICA
 
 **HYDRA-UMC-BRIDGE-LASER** è il ponte di alto livello per celle laser e ausiliari robotici HYDRA-UMC. Può coordinare attività periferiche sicure come il trasferimento di materiale, ma non può **mai** armare, attivare o scavalcare un controllore laser — quelle condizioni sono osservazioni che legge, non autorità che detiene.
@@ -124,7 +128,7 @@ bash build.sh
 
 ## ✅ STATO ATTUALE E PROSSIMI PASSI
 
-**Reale oggi:** versione `0.0.9`, un nucleo di pianificazione fail-safe testato in locale (`LaserSafetySnapshot` + `LaserCellBridge`) appoggiato sulla porta di lavoro condivisa di `HYDRA-UMC-SDK`, normalizzazione rigorosa e in sola lettura dell'evidenza di sicurezza che distingue un lavoro realmente in pausa (`HOLDING`) da uno realmente in taglio (`RUNNING`), una lettura GPIO reale e neutrale rispetto al controllore (`GpioSafetyProbe`) per le 3 protezioni indipendenti chiave/involucro/interblocco, una suite `unittest` deterministica di trentadue test, e script build-test non mutanti collegati alla CI con checkout dell'SDK.
+**Reale oggi:** versione `0.0.9`, un nucleo di pianificazione fail-safe testato in locale (`LaserSafetySnapshot` + `LaserCellBridge`) appoggiato sulla porta di lavoro condivisa di `HYDRA-UMC-SDK`, normalizzazione rigorosa e in sola lettura dell'evidenza di sicurezza che distingue un lavoro realmente in pausa (`HOLDING`) da uno realmente in taglio (`RUNNING`), una lettura GPIO reale e neutrale rispetto al controllore (`GpioSafetyProbe`) per le 3 protezioni indipendenti chiave/involucro/interblocco, un vero trasporto MQTT di stato/evidenza (`mqtt_transport.py`), una suite `unittest` deterministica di quaranta test, e script build-test non mutanti collegati alla CI con checkout dell'SDK.
 
 **Confine di integrazione:** l'involucro, la chiave e l'interblocco certificati del controllore laser stesso non vengono mai aggirati; questo ponte regola solo il lavoro robotico *ausiliario* attorno ad esso, e solo leggendo il suo stato riportato.
 

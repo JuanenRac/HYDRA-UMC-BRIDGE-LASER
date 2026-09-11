@@ -22,6 +22,10 @@ GPL-3.0-or-later - see LICENSE
 
 ---
 
+> **Honesty check - what actually runs today:** the four-signal safety snapshot and gate (`cell.py`'s `LaserSafetySnapshot`/`LaserCellBridge`, funneling every job through `HYDRA-UMC-SDK`'s own `evaluate_job()`), the read-only evidence normalizer (`observation.py`), the real GPIO interlock reader (`gpio_safety.py`'s `GpioSafetyProbe`, libgpiod v2), and the MQTT status/evidence transport (`mqtt_transport.py`) are real and covered by 40 passing `unittest` cases (`python tools/build_test.py`), including `tests/test_gpio_mqtt_emulator.py` running this bridge against a protocol-faithful, hand-written GPIO/MQTT emulator. None of it has touched a real GPIO chip, a real MQTT broker, or an actual laser controller - `test_gpio_safety.py` reads against a fake chip and `test_mqtt_transport.py` uses a fake broker client. There is no concrete laser controller/software integration yet, because the machine and its documented interface aren't available - see "Current Status & Next Steps" below, which already says this plainly, and `CHANGELOG.md` for exactly what has shipped so far.
+
+---
+
 ## 1. 🛠️ TECHNICAL OVERVIEW
 
 **HYDRA-UMC-BRIDGE-LASER** is the high-level bridge for laser cells and HYDRA-UMC robot auxiliaries. It can coordinate safe peripheral tasks such as material hand-off, but it can **never** arm, fire or override a laser controller — those are observations it reads, not authorities it holds.
@@ -124,7 +128,7 @@ bash build.sh
 
 ## ✅ Current Status & Next Steps
 
-**Real today:** version `0.0.9`, a locally tested fail-safe planning core (`LaserSafetySnapshot` + `LaserCellBridge`) backed by `HYDRA-UMC-SDK`'s shared job gate, strict read-only safety-evidence normalization distinguishing a real paused job (`HOLDING`) from an actively firing one (`RUNNING`), a real controller-neutral GPIO reader (`GpioSafetyProbe`) for the 3 independent key/enclosure/interlock safeguards, a thirty-two-test deterministic `unittest` suite, and non-mutating build-test scripts wired into CI with an SDK checkout.
+**Real today:** version `0.0.9`, a locally tested fail-safe planning core (`LaserSafetySnapshot` + `LaserCellBridge`) backed by `HYDRA-UMC-SDK`'s shared job gate, strict read-only safety-evidence normalization distinguishing a real paused job (`HOLDING`) from an actively firing one (`RUNNING`), a real controller-neutral GPIO reader (`GpioSafetyProbe`) for the 3 independent key/enclosure/interlock safeguards, a real MQTT status/evidence transport (`mqtt_transport.py`), a forty-test deterministic `unittest` suite, and non-mutating build-test scripts wired into CI with an SDK checkout.
 
 **Integration boundary:** the laser controller's own certified enclosure, key-switch and interlock authority is never bypassed; this bridge only ever gates *auxiliary* robot work around it, and only by reading its reported state.
 
