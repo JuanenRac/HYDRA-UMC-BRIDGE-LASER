@@ -22,7 +22,7 @@ GPL-3.0-or-later - see LICENSE
 
 ---
 
-> **诚实检查——今天真正可运行的部分：** 四信号安全快照及其门控（`cell.py` 中的 `LaserSafetySnapshot`/`LaserCellBridge`，每个任务都会经过 `HYDRA-UMC-SDK` 自身真正的 `evaluate_job()`）、只读的证据归一化器（`observation.py`）、真正的 GPIO 联锁读取器（`gpio_safety.py` 中的 `GpioSafetyProbe`，libgpiod v2），以及 MQTT 状态/证据传输（`mqtt_transport.py`）都是真实的，并由 49 个通过的 `unittest` 用例覆盖（`python tools/build_test.py`），其中包括让该桥接对抗一个协议忠实但纯手写的 GPIO/MQTT 模拟器的 `tests/test_gpio_mqtt_emulator.py`。以上这些都从未接触过真实的 GPIO 芯片、真实的 MQTT broker 或真实的激光控制器——`test_gpio_safety.py` 读取的是一个伪造芯片，`test_mqtt_transport.py` 使用的是一个伪造的 broker 客户端。目前还没有具体的激光控制器/软件集成，因为相应的机器及其文档化接口尚不可用——详见下文的"当前状态与后续步骤"（已经如实说明了这一点），以及 `CHANGELOG.md` 中目前具体已交付的内容。
+> **诚实检查——今天真正可运行的部分：** 四信号安全快照及其门控（`cell.py` 中的 `LaserSafetySnapshot`/`LaserCellBridge`，每个任务都会经过 `HYDRA-UMC-SDK` 自身真正的 `evaluate_job()`）、只读的证据归一化器（`observation.py`）、真正的 GPIO 联锁读取器（`gpio_safety.py` 中的 `GpioSafetyProbe`，libgpiod v2），以及 MQTT 状态/证据传输（`mqtt_transport.py`）都是真实的，并由 57 个通过的 `unittest` 用例覆盖（`python tools/build_test.py`），其中包括让该桥接对抗一个协议忠实但纯手写的 GPIO/MQTT 模拟器的 `tests/test_gpio_mqtt_emulator.py`。以上这些都从未接触过真实的 GPIO 芯片、真实的 MQTT broker 或真实的激光控制器——`test_gpio_safety.py` 读取的是一个伪造芯片，`test_mqtt_transport.py` 使用的是一个伪造的 broker 客户端。目前还没有具体的激光控制器/软件集成，因为相应的机器及其文档化接口尚不可用——详见下文的"当前状态与后续步骤"（已经如实说明了这一点），以及 `CHANGELOG.md` 中目前具体已交付的内容。
 
 ---
 
@@ -128,7 +128,7 @@ bash build.sh
 
 ## ✅ 当前状态与后续步骤
 
-**目前真实的部分:** 版本 `0.1.0`,一个已在本地测试过的故障安全规划核心(`LaserSafetySnapshot` + `LaserCellBridge`),依托 `HYDRA-UMC-SDK` 的共享任务门控,包含严格的只读安全证据标准化,能区分真正暂停的任务(`HOLDING`)与真正正在切割的任务(`RUNNING`),一个真实的、与控制器无关的 GPIO 联锁读取(`GpioSafetyProbe`),覆盖钥匙/外壳/联锁这 3 项独立防护,一个真实的 MQTT 状态/证据传输(`mqtt_transport.py`),配有确定性的四十九项 `unittest` 测试套件,以及已接入 CI 并带 SDK 检出的非变更式 build-test 脚本。
+**目前真实的部分:** 版本 `0.1.1`,一个已在本地测试过的故障安全规划核心(`LaserSafetySnapshot` + `LaserCellBridge`),依托 `HYDRA-UMC-SDK` 的共享任务门控,包含严格的只读安全证据标准化,能区分真正暂停的任务(`HOLDING`)与真正正在切割的任务(`RUNNING`),一个真实的、与控制器无关的 GPIO 联锁读取(`GpioSafetyProbe`),覆盖钥匙/外壳/联锁这 3 项独立防护,一个真实的 MQTT 状态/证据传输(`mqtt_transport.py`),配有确定性的五十七项 `unittest` 测试套件,以及已接入 CI 并带 SDK 检出的非变更式 build-test 脚本。
 
 **集成边界:** 激光控制器自身已认证的防护罩、钥匙开关和联锁权限从不被绕过;本桥接只负责围绕它门控*辅助*机器人工作,且仅通过读取其上报的状态。
 
