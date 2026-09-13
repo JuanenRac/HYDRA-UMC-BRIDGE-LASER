@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 
 from .cell import LaserSafetySnapshot
 
@@ -57,3 +58,68 @@ def snapshot_from_fresh_mapping(payload: object, *, now_ms: int, max_age_ms: int
     if valid_clock:
         return snapshot
     return LaserSafetySnapshot(snapshot.controller_state, snapshot.key_enabled, snapshot.enclosure_closed, False)
+
+
+@dataclass(frozen=True)
+class IndependentObservation:
+    """A snapshot plus the generation it was actually accepted at.
+
+    A caller remembers ``generation`` and passes it back as
+    ``min_generation`` on its next read, so a replayed capture (the exact
+    same observation, just with its timestamp bumped) can never look like
+    a brand new one. ``generation`` is ``None`` whenever ``snapshot``
+    itself was rejected - there is nothing genuine to remember from a
+    capture that was already unhealthy, stale, or not from the expected
+    observer.
+    """
+
+    snapshot: LaserSafetySnapshot
+    generation: int | None
+
+
+def snapshot_from_independently_observed_mapping(
+    payload: object,
+    *,
+    now_ms: int,
+    max_age_ms: int,
+    expected_origin: str,
+    min_generation: int | None,
+) -> IndependentObservation:
+    """Accept saved laser evidence only when it is BOTH fresh (see
+    ``snapshot_from_fresh_mapping``) AND genuinely produced, for the first
+    time, by the one independent observer this caller actually trusts.
+
+    A saved evidence file's own ``observed_at_ms`` proves nothing about
+    who wrote it - the same process that would otherwise fake a safe
+    state could just as easily fabricate a fresh-looking timestamp. Two
+    further, independent checks close that gap:
+
+    - ``origin`` must be a non-empty string equal to ``expected_origin``
+      (e.g. the GPIO safety daemon's own identity) - evidence claiming any
+      other origin, or none, fails closed the same way a stale timestamp
+      already does.
+    - ``generation`` must be a real, non-negative integer strictly greater
+      than ``min_generation`` (the generation this caller last accepted,
+      or ``None`` on its very first read) - a capture that does not
+      advance the generation is treated as a replay of an
+      already-observed reading, never a new one, no matter how fresh its
+      timestamp claims to be.
+    """
+
+    base = snapshot_from_fresh_mapping(payload, now_ms=now_ms, max_age_ms=max_age_ms)
+    if not base.interlock_healthy:
+        return IndependentObservation(base, None)
+
+    origin = payload.get("origin") if isinstance(payload, Mapping) else None
+    generation = payload.get("generation") if isinstance(payload, Mapping) else None
+    valid_origin = isinstance(origin, str) and origin != "" and origin == expected_origin
+    valid_generation = (
+        isinstance(generation, int)
+        and not isinstance(generation, bool)
+        and generation >= 0
+        and (min_generation is None or generation > min_generation)
+    )
+    if not (valid_origin and valid_generation):
+        rejected = LaserSafetySnapshot(base.controller_state, base.key_enabled, base.enclosure_closed, False)
+        return IndependentObservation(rejected, None)
+    return IndependentObservation(base, generation)

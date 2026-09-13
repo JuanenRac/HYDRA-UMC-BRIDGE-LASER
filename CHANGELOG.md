@@ -6,6 +6,27 @@ GPL-3.0-or-later - see LICENSE
 
 # Changelog
 
+## [0.1.0] - Saved safety evidence now proves it came from the expected independent observer
+
+`observation.py` (I49, the remaining half): `snapshot_from_fresh_mapping()`
+already failed closed on a stale timestamp, but a saved evidence file's
+own `observed_at_ms` proves nothing about who actually wrote it - the
+same process that would otherwise fake a safe state could just as easily
+fabricate a fresh-looking timestamp. New
+`snapshot_from_independently_observed_mapping()` closes that gap with two
+further, independent checks: `origin` must equal the one observer this
+caller actually trusts (e.g. the GPIO safety daemon's own identity), and
+`generation` must be a real integer strictly greater than the generation
+this caller last accepted - a capture that doesn't advance the
+generation is treated as a replay of an already-seen observation, never
+a new one, no matter how fresh its timestamp claims to be.
+
+H004: `GpioLineReader` is a real `typing.Protocol` now, not a base class
+with a `NotImplementedError` body - the previous form was directly
+instantiable and looked like a usable (if broken) implementation.
+
+16 new tests, 49 total, `ci_validate.py`/`build_test.py` both pass.
+
 ## [0.0.9] - A libgpiod-shaped GPIO chip + a real MQTT broker emulator, not FakeLine + a list
 
 Until now the doubles here were `FakeLine` (a fixed bool, or one that
