@@ -24,15 +24,24 @@ work on any host without it installed.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Protocol, runtime_checkable
 
 from .cell import LaserSafetySnapshot
 
 
-class GpioLineReader:
-    """The minimal real interface this module depends on for one GPIO line."""
+@runtime_checkable
+class GpioLineReader(Protocol):
+    """The minimal real interface this module depends on for one GPIO line.
 
-    def read(self) -> bool:  # pragma: no cover - Protocol-style stub
-        raise NotImplementedError
+    A real `typing.Protocol`, not a base class with a `NotImplementedError`
+    body - the previous form was directly instantiable and looked like a
+    usable no-op implementation (it would only fail, at call time, the
+    moment `.read()` actually ran). A Protocol has no body to instantiate
+    at all: `_RequestedLine` below satisfies it structurally, with no
+    inheritance, and a type checker rejects anything that doesn't.
+    """
+
+    def read(self) -> bool: ...
 
 
 @dataclass(frozen=True)

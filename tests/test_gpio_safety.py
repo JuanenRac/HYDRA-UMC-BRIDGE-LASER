@@ -15,7 +15,7 @@ open_gpio_safety_lines() itself needs gpiod, and it isn't exercised here
 import unittest
 
 from hydra_umc_sdk.bridge_contract import MachineState
-from hydra_umc_bridge_laser import GpioSafetyLines, GpioSafetyProbe
+from hydra_umc_bridge_laser import GpioLineReader, GpioSafetyLines, GpioSafetyProbe
 
 
 class FakeLine:
@@ -55,6 +55,29 @@ class GpioSafetyProbeTests(unittest.TestCase):
         self.assertFalse(snapshot.enclosure_closed)
         self.assertFalse(snapshot.interlock_healthy)
         self.assertEqual(snapshot.machine_state(), MachineState.SAFE_STOP)
+
+
+class GpioLineReaderProtocolTests(unittest.TestCase):
+    def test_a_real_line_reader_satisfies_the_protocol_structurally(self):
+        # H004: GpioLineReader is a real typing.Protocol now, not a base
+        # class with a NotImplementedError body - FakeLine never inherits
+        # from it, so this isinstance() check only passes because the
+        # Protocol is genuinely structural (and @runtime_checkable).
+        self.assertIsInstance(FakeLine(True), GpioLineReader)
+
+    def test_the_protocol_itself_cannot_be_instantiated(self):
+        # The old base-class form COULD be instantiated directly and would
+        # look like a usable (if broken) implementation. A real Protocol
+        # has no body to instantiate at all - this is the actual defect
+        # H004 asked to close.
+        with self.assertRaises(TypeError):
+            GpioLineReader()
+
+    def test_an_object_missing_read_does_not_satisfy_the_protocol(self):
+        class NotALine:
+            pass
+
+        self.assertNotIsInstance(NotALine(), GpioLineReader)
 
 
 class OpenGpioSafetyLinesTests(unittest.TestCase):
