@@ -1,6 +1,6 @@
 <!-- =============================================================================
 HYDRA-UMC-BRIDGE-LASER - Change history
-Copyright (C) 2026 JuanenRac (Electro Hobby 3D) <electrohobby3d@gmail.com>
+Copyright (C) JuanenRac (Electro Hobby 3D) <electrohobby3d@gmail.com>
 GPL-3.0-or-later - see LICENSE
 ============================================================================= -->
 
@@ -13,9 +13,9 @@ GPL-3.0-or-later - see LICENSE
   real edge-event API (`edge_detection=Edge.BOTH`) and block on the
   kernel's own edge notifications instead of only re-reading level values
   when an unrelated inbound `cmd/status`/`cmd/job` message happens to ask -
-  the real gap `mqtt_transport.py`'s own LASER-01 comment already
-  documented ("went unnoticed until the next unrelated poll happened to
-  catch it").
+  the real gap `mqtt_transport.py`'s own stale-interlock-snapshot fix
+  already documented ("went unnoticed until the next unrelated poll
+  happened to catch it").
 - `run_forever()` gains optional `gpio_chip_path`/`key_line_offset`/
   `enclosure_line_offset`/`interlock_line_offset` keyword arguments; when
   given, a background daemon thread watches for real edge events and
@@ -50,7 +50,7 @@ GPL-3.0-or-later - see LICENSE
 
 ## [0.1.0] - Saved safety evidence now proves it came from the expected independent observer
 
-`observation.py` (I49, the remaining half): `snapshot_from_fresh_mapping()`
+`observation.py`: `snapshot_from_fresh_mapping()`
 already failed closed on a stale timestamp, but a saved evidence file's
 own `observed_at_ms` proves nothing about who actually wrote it - the
 same process that would otherwise fake a safe state could just as easily
@@ -97,11 +97,11 @@ moves the next state to `SAFE_STOP`; a late subscriber still gets the
 current retained safety state; a faulted chip fails closed; active-low
 interlock wiring reads healthy at logic 0; and a job arriving right
 after a key-off is gated against the live snapshot, not a stale one
-(LASER-01) - all through the real message flow. 40 tests total.
+(the real interlock-refresh fix below) - all through the real message flow. 40 tests total.
 
-## [0.0.8] - LASER-01: real interlocks are re-read live before every job
+## [0.0.8] - Real interlocks are re-read live before every job
 
-- **LASER-01 (P0):** `cmd/job` reused `self._last_snapshot` - whatever
+- **Fixed a real stale-interlock-snapshot bug (P0):** `cmd/job` reused `self._last_snapshot` - whatever
   key/enclosure/interlock state was last queried, possibly from an
   unrelated `cmd/status` poll seconds or minutes earlier - instead of
   re-reading the real, current 3 GPIO safeguards right before gating a
@@ -113,11 +113,11 @@ after a key-off is gated against the live snapshot, not a stale one
   `self._last_snapshot` itself was removed entirely (it had no other
   reader left) rather than leaving unused cached state a future edit
   could be tempted to read from again. Same real fix already applied to
-  sibling HYDRA-UMC-BRIDGE-CNC's own CNC-01. 2 tests updated/added
+  the same class of bug in sibling HYDRA-UMC-BRIDGE-CNC. 2 tests updated/added
   (32 total, up from 31) - explicit regressions for both the dangerous
   direction (stale-safe masking a real open enclosure) and the safe
   direction (stale-unsafe no longer blocking a now-genuinely-safe job).
-- **LANG-07:** the English README's own
+- **Fixed a missing translation section:** the English README's own
   "observation helper is an evidence normalizer" paragraph, linking
   `docs/CONTROLLER_EVIDENCE_BOUNDARY.md`, was missing from all 6
   translations even though the file was already listed in each one's own
