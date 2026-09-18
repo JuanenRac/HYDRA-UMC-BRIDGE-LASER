@@ -43,7 +43,7 @@ from typing import Callable
 from hydra_umc_sdk.bridge_contract import BridgeError, CellState, decision_to_dict, job_from_dict
 
 from .cell import LaserCellBridge, LaserSafetySnapshot
-from .gpio_safety import GpioSafetyLines, GpioSafetyProbe
+from .gpio_safety import EdgeEventSource, GpioSafetyLines, GpioSafetyProbe, open_gpio_edge_watcher, watch_for_interlock_edges
 
 TOPIC_PREFIX = "hydra/bridges/laser/"
 
@@ -180,6 +180,61 @@ def connect_with_retry(
     ) from last_error
 
 
+def build_edge_watch_on_change(bridge: LaserMqttBridge, publish: Callable[[MqttPublish], None]) -> Callable[[], None]:
+    """Build the real `on_change` callback `watch_for_interlock_edges()`
+    calls: re-read the 3 GPIO lines live (never trust the raw edge-event
+    payload itself, same "always read the live level" rule the rest of
+    this bridge already follows) and publish the resulting state the same
+    way a `cmd/status` message would, retained, so any subscriber sees the
+    real interlock change immediately instead of only on the next message
+    this bridge happens to receive. Kept as its own pure function (returns
+    a callable, does not start any thread itself) so the wiring is
+    unit-testable without a real GPIO chip, edge event or MQTT client."""
+
+    def on_change() -> None:
+        publish(MqttPublish(f"{TOPIC_PREFIX}state", _snapshot_payload(bridge.refresh_status()), retain=True))
+
+    return on_change
+
+
+def start_edge_watch_thread(
+    bridge: LaserMqttBridge,
+    publish: Callable[[MqttPublish], None],
+    chip_path: str,
+    key_line_offset: int,
+    enclosure_line_offset: int,
+    interlock_line_offset: int,
+    *,
+    open_watcher: Callable[[str, int, int, int], EdgeEventSource] = open_gpio_edge_watcher,
+    watch: Callable[..., None] = watch_for_interlock_edges,
+) -> "threading.Thread":
+    """Start the real background edge-watch loop as a daemon thread - the
+    real latency win over the pre-existing "only re-read on the next
+    unrelated MQTT message" behavior (see LASER-01 above): a real
+    enclosure/key/interlock transition now publishes an updated `state`
+    the instant the kernel reports it, independent of any inbound command.
+
+    A daemon thread so it never blocks process shutdown; `watch_for_interlock_edges()`
+    itself has no natural exit condition here (this loop is meant to run
+    for the whole process lifetime, matching `client.loop_forever()`
+    below), so this is deliberately fire-and-forget rather than joined.
+    """
+
+    import threading
+
+    watcher = open_watcher(chip_path, key_line_offset, enclosure_line_offset, interlock_line_offset)
+    on_change = build_edge_watch_on_change(bridge, publish)
+    thread = threading.Thread(
+        target=watch,
+        args=(watcher, on_change),
+        kwargs={"should_stop": lambda: False},
+        name="hydra-umc-bridge-laser-edge-watch",
+        daemon=True,
+    )
+    thread.start()
+    return thread
+
+
 def run_forever(
     bridge: LaserMqttBridge,
     host: str,
@@ -190,6 +245,10 @@ def run_forever(
     connect_retry_delay_seconds: float = 2.0,
     username: str | None = None,
     password: str | None = None,
+    gpio_chip_path: str | None = None,
+    key_line_offset: int | None = None,
+    enclosure_line_offset: int | None = None,
+    interlock_line_offset: int | None = None,
 ) -> None:
     """Connect to a real HYDRA-UMC-MQTT-BROKER and dispatch forever.
 
@@ -203,6 +262,16 @@ def run_forever(
     meaningful together with `username`; a caller supplying `password`
     alone almost certainly meant to set both, so that combination is
     rejected rather than silently connecting unauthenticated.
+
+    `gpio_chip_path`/`*_line_offset` are optional and off by default - a
+    deployment that supplies all 4 gets the real libgpiod v2 edge-event
+    watcher (see `start_edge_watch_thread()`) started as a background
+    thread publishing state the instant a real interlock line transitions,
+    on top of (never instead of) the existing `cmd/status`/`cmd/job`
+    on-demand reads. Omitting them (the previous behavior, still the
+    default) leaves this bridge exactly as before - no new required
+    dependency or hardware for a deployment that doesn't have the GPIO
+    lines wired up yet.
     """
 
     if password is not None and username is None:
@@ -233,4 +302,16 @@ def run_forever(
         max_attempts=max_connect_attempts,
         retry_delay_seconds=connect_retry_delay_seconds,
     )
+
+    gpio_offsets = (key_line_offset, enclosure_line_offset, interlock_line_offset)
+    if gpio_chip_path is not None and all(offset is not None for offset in gpio_offsets):
+        start_edge_watch_thread(
+            bridge,
+            lambda publish: client.publish(publish.topic, publish.payload, retain=publish.retain),  # type: ignore[attr-defined]
+            gpio_chip_path,
+            key_line_offset,  # type: ignore[arg-type]
+            enclosure_line_offset,  # type: ignore[arg-type]
+            interlock_line_offset,  # type: ignore[arg-type]
+        )
+
     client.loop_forever()
