@@ -6,6 +6,26 @@ GPL-3.0-or-later - see LICENSE
 
 # Changelog
 
+## [0.1.2] - Real-time interlock monitoring via libgpiod v2 edge events
+
+- `open_gpio_edge_watcher()`/`watch_for_interlock_edges()` (`gpio_safety.py`)
+  open the same 3 real GPIO safeguard lines configured for libgpiod v2's
+  real edge-event API (`edge_detection=Edge.BOTH`) and block on the
+  kernel's own edge notifications instead of only re-reading level values
+  when an unrelated inbound `cmd/status`/`cmd/job` message happens to ask -
+  the real gap `mqtt_transport.py`'s own LASER-01 comment already
+  documented ("went unnoticed until the next unrelated poll happened to
+  catch it").
+- `run_forever()` gains optional `gpio_chip_path`/`key_line_offset`/
+  `enclosure_line_offset`/`interlock_line_offset` keyword arguments; when
+  given, a background daemon thread watches for real edge events and
+  publishes an updated, retained `state` the instant a key/enclosure/
+  interlock line transitions. Omitting them keeps the previous on-demand
+  behavior unchanged - no new required dependency or hardware for a
+  deployment without the GPIO lines wired up yet.
+- 8 new tests. 65/65 `unittest` cases pass (`python tools/build_test.py`,
+  up from 57).
+
 ## [0.1.1] - H050/H051: configurable MQTT authentication, and a retained command can no longer replay as a live one
 
 - **H050.** `run_forever()` had no way to authenticate against

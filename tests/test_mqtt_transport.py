@@ -273,6 +273,76 @@ class ConnectWithRetryTests(unittest.TestCase):
             connect_with_retry(broken_connect, sleep=lambda _: None)
 
 
+class EdgeWatchOnChangeTests(unittest.TestCase):
+    def test_on_change_re_reads_live_lines_and_publishes_retained_state(self):
+        from hydra_umc_bridge_laser.mqtt_transport import build_edge_watch_on_change
+
+        real_bridge = bridge(key=True, enclosure=False, interlock=True)
+        published = []
+        on_change = build_edge_watch_on_change(real_bridge, published.append)
+
+        on_change()
+
+        self.assertEqual(len(published), 1)
+        self.assertEqual(published[0].topic, f"{TOPIC_PREFIX}state")
+        self.assertTrue(published[0].retain)
+        payload = json.loads(published[0].payload)
+        self.assertTrue(payload["key_enabled"])
+        self.assertFalse(payload["enclosure_closed"])
+
+    def test_each_call_re_reads_live_rather_than_reusing_a_stale_reading(self):
+        # The real point of edge-triggered watching: a line that changed
+        # between two edge events must be reflected each time, not a
+        # snapshot captured once when the watcher started.
+        from hydra_umc_bridge_laser.mqtt_transport import build_edge_watch_on_change
+
+        lines = GpioSafetyLines(FakeLine(True), FakeLine(True), FakeLine(True))
+        real_bridge = LaserMqttBridge(lines, lambda: "IDLE", lambda: CellState.READY)
+        published = []
+        on_change = build_edge_watch_on_change(real_bridge, published.append)
+
+        on_change()
+        lines.enclosure_closed.value = False
+        on_change()
+
+        first_payload = json.loads(published[0].payload)
+        second_payload = json.loads(published[1].payload)
+        self.assertTrue(first_payload["enclosure_closed"])
+        self.assertFalse(second_payload["enclosure_closed"])
+
+
+class StartEdgeWatchThreadTests(unittest.TestCase):
+    def test_opens_the_watcher_with_the_given_chip_and_offsets_and_starts_a_daemon_thread(self):
+        from hydra_umc_bridge_laser.mqtt_transport import start_edge_watch_thread
+
+        opened_with = {}
+
+        def fake_open_watcher(chip_path, key_offset, enclosure_offset, interlock_offset):
+            opened_with["args"] = (chip_path, key_offset, enclosure_offset, interlock_offset)
+            return object()
+
+        watch_calls = []
+
+        def fake_watch(source, on_change, **kwargs):
+            watch_calls.append((source, on_change, kwargs))
+
+        real_bridge = bridge()
+        thread = start_edge_watch_thread(
+            real_bridge,
+            lambda publish: None,
+            "/dev/gpiochip0",
+            0,
+            1,
+            2,
+            open_watcher=fake_open_watcher,
+            watch=fake_watch,
+        )
+        thread.join(timeout=2)
+
+        self.assertEqual(opened_with["args"], ("/dev/gpiochip0", 0, 1, 2))
+        self.assertTrue(thread.daemon)
+        self.assertEqual(len(watch_calls), 1)
+
 
 if __name__ == "__main__":
     unittest.main()
