@@ -60,7 +60,7 @@ class GpioSafetyProbeTests(unittest.TestCase):
 
 class GpioLineReaderProtocolTests(unittest.TestCase):
     def test_a_real_line_reader_satisfies_the_protocol_structurally(self):
-        # H004: GpioLineReader is a real typing.Protocol now, not a base
+        # GpioLineReader is a real typing.Protocol now, not a base
         # class with a NotImplementedError body - FakeLine never inherits
         # from it, so this isinstance() check only passes because the
         # Protocol is genuinely structural (and @runtime_checkable).
@@ -70,7 +70,7 @@ class GpioLineReaderProtocolTests(unittest.TestCase):
         # The old base-class form COULD be instantiated directly and would
         # look like a usable (if broken) implementation. A real Protocol
         # has no body to instantiate at all - this is the actual defect
-        # H004 asked to close.
+        # asked to close.
         with self.assertRaises(TypeError):
             GpioLineReader()
 

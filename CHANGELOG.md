@@ -26,16 +26,16 @@ GPL-3.0-or-later - see LICENSE
 - 8 new tests. 65/65 `unittest` cases pass (`python tools/build_test.py`,
   up from 57).
 
-## [0.1.1] - H050/H051: configurable MQTT authentication, and a retained command can no longer replay as a live one
+## [0.1.1] - configurable MQTT authentication, and a retained command can no longer replay as a live one
 
-- **H050.** `run_forever()` had no way to authenticate against
+- **.** `run_forever` had no way to authenticate against
   HYDRA-UMC-MQTT-BROKER's own real, opt-in `MQTT_AUTH_JSON` username/
   password CONNECT authentication - a broker deployed with credentials
   required was simply unreachable from this bridge. New optional
   `username`/`password` keyword arguments call paho-mqtt's own
   `username_pw_set()`; a `password` given without a `username` is
   rejected outright rather than silently connecting unauthenticated.
-- **H051.** `on_connect()`'s `subscribe("cmd/#")` makes the broker replay
+- **.** `on_connect`'s `subscribe("cmd/#")` makes the broker replay
   every currently-retained message on that wildcard immediately - on
   *every* reconnect, not just once at startup. A retained `cmd/job` would
   re-run the shared job gate with no new operator intent behind it.
@@ -63,7 +63,7 @@ this caller last accepted - a capture that doesn't advance the
 generation is treated as a replay of an already-seen observation, never
 a new one, no matter how fresh its timestamp claims to be.
 
-H004: `GpioLineReader` is a real `typing.Protocol` now, not a base class
+`GpioLineReader` is a real `typing.Protocol` now, not a base class
 with a `NotImplementedError` body - the previous form was directly
 instantiable and looked like a usable (if broken) implementation.
 

@@ -94,8 +94,8 @@ class LaserMqttBridge:
     def refresh_status(self) -> LaserSafetySnapshot:
         """Re-read the 3 real GPIO safeguards now.
 
-        LASER-01 (same real gap as sibling HYDRA-UMC-BRIDGE-CNC's own
-        CNC-01): this
+        (same real gap as sibling HYDRA-UMC-BRIDGE-CNC's own
+        ): this
         used to cache its result in `self._last_snapshot` for `cmd/job` to
         reuse instead of reading the 3 real GPIO lines again - a real
         enclosure/key/interlock change between two messages went unnoticed
@@ -114,7 +114,7 @@ class LaserMqttBridge:
         silently ignored, never an error - a future sibling topic this
         version does not know about yet must never crash the message loop.
 
-        H051: `retained` is True when the broker delivered this message
+        `retained` is True when the broker delivered this message
         because of the MQTT retain flag, not because a client just
         published it live. `on_connect()`'s own `subscribe("cmd/#")`
         replays every currently-retained message on that wildcard the
@@ -144,7 +144,7 @@ class LaserMqttBridge:
         except (json.JSONDecodeError, BridgeError, UnicodeDecodeError) as error:
             decision = {"allowed": False, "reason": f"malformed job payload: {error}"}
             return MqttPublish(f"{TOPIC_PREFIX}cmd/job/result", json.dumps(decision))
-        # LASER-01 - always re-read live, right before the gate decides.
+        # - always re-read live, right before the gate decides.
         snapshot = self.refresh_status()
         decision = self._gate.plan(job, self._cell_state(), snapshot)
         return MqttPublish(f"{TOPIC_PREFIX}cmd/job/result", json.dumps(decision_to_dict(decision)))
@@ -210,7 +210,7 @@ def start_edge_watch_thread(
 ) -> "threading.Thread":
     """Start the real background edge-watch loop as a daemon thread - the
     real latency win over the pre-existing "only re-read on the next
-    unrelated MQTT message" behavior (see LASER-01 above): a real
+    unrelated MQTT message" behavior (see above): a real
     enclosure/key/interlock transition now publishes an updated `state`
     the instant the kernel reports it, independent of any inbound command.
 
@@ -255,7 +255,7 @@ def run_forever(
     The only place this module imports paho-mqtt - lazily, so the rest of
     this module (and every test) works on a host without it installed.
 
-    H050: `username`/`password` are optional (matching
+    `username`/`password` are optional (matching
     HYDRA-UMC-MQTT-BROKER's own `MQTT_AUTH_JSON` authentication, which is
     itself opt-in) - a broker deployed with authentication required had no
     way to be reached from here at all before this. `password` is only
