@@ -90,7 +90,7 @@ class JobCommandTests(unittest.TestCase):
         self.assertTrue(json.loads(publishes[0].payload)["allowed"])
 
     def test_a_job_always_re_reads_the_real_gpio_lines_even_if_one_was_cached(self):
-        # LASER-01 regression: this used to reuse whatever
+        # regression: this used to reuse whatever
         # refresh_status() last saw instead of reading the real GPIO
         # lines again - even after an explicit earlier refresh_status()
         # call, handle_message() must still re-read live right before
@@ -129,7 +129,7 @@ class RunForeverTests(unittest.TestCase):
         self.assertIn("paho-mqtt is not installed", str(context.exception))
 
     def test_password_without_username_is_rejected_before_ever_touching_paho_mqtt(self):
-        # H050: catches the most likely real misconfiguration (a password
+        # catches the most likely real misconfiguration (a password
         # set without a username) as a real, immediate error - never a
         # silent unauthenticated connection to a broker that actually
         # requires MQTT_AUTH_JSON credentials.
@@ -140,7 +140,7 @@ class RunForeverTests(unittest.TestCase):
         self.assertIn("password was given without a username", str(context.exception))
 
     def test_configures_broker_credentials_when_given(self):
-        # H050: HYDRA-UMC-MQTT-BROKER's own MQTT_AUTH_JSON authentication
+        # HYDRA-UMC-MQTT-BROKER's own MQTT_AUTH_JSON authentication
         # is real but this bridge previously had no way at all to supply
         # a username/password to reach a broker that requires it.
         try:
@@ -173,7 +173,7 @@ class RunForeverTests(unittest.TestCase):
         fake_client.username_pw_set.assert_not_called()
 
     def test_on_message_passes_the_real_retain_flag_through_to_handle_message(self):
-        # H051 end to end: a real paho-mqtt MQTTMessage's own `.retain`
+        # end to end: a real paho-mqtt MQTTMessage's own `.retain`
         # flag must reach handle_message(), or every retained-command
         # protection below would be dead code in the one real path that
         # actually needs it.
@@ -198,7 +198,7 @@ class RunForeverTests(unittest.TestCase):
 
 
 class RetainedMessageTests(unittest.TestCase):
-    """H051: a real broker replays every currently-retained message on the
+    """a real broker replays every currently-retained message on the
     subscribed wildcard immediately upon (re)subscribe - which happens on
     every reconnect, not just once at startup. Neither of this bridge's
     `cmd/*` topics is ever meant to be retained by a legitimate live

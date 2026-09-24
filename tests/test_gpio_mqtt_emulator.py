@@ -107,7 +107,7 @@ class BridgeAgainstGpioAndBrokerTests(unittest.TestCase):
         self.broker.pump(self.bridge)
         self.assertEqual(self._last_state()["machine_state"], "IDLE")
 
-        # ...then the key is turned off, THEN a job arrives (LASER-01: the
+        # ...then the key is turned off, THEN a job arrives (the
         # gate must re-read live, not reuse the last snapshot).
         self.chip.turn_key(False)
         self.broker.enqueue_inbound(JOB_TOPIC, _job())

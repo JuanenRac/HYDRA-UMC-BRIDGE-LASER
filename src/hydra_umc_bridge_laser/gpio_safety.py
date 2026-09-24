@@ -123,7 +123,7 @@ def open_gpio_edge_watcher(
     Edge.BOTH`) instead of level-only input.
 
     This is what actually closes the real latency gap `mqtt_transport.py`'s
-    own LASER-01 comment documents: without this, a real enclosure/key/
+    own comment documents: without this, a real enclosure/key/
     interlock change is only ever noticed the next time something else
     happens to ask this bridge to re-read the lines (an inbound
     `cmd/status`/`cmd/job` MQTT message) - there is no ongoing observation
