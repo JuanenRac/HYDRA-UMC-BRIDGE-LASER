@@ -10,7 +10,7 @@ GPL-3.0-or-later - see LICENSE
 
 # 🔦 HYDRA-UMC-BRIDGE-LASER
 
-<p align="center"><a href="README.md">🇺🇸 English</a> | <a href="README_spa.md">🇪🇸 Español</a> | <a href="README_fra.md">🇫🇷 Français</a> | 🇮🇹 <b>Italiano</b> | <a href="README_deu.md">🇩🇪 Deutsch</a> | <a href="README_zho.md">🇨🇳 简体中文</a> | <a href="README_jpn.md">🇯🇵 日本語</a></p>
+<p align="center"><a href="README.md">🇺🇸 English</a> | <a href="README_spa.md">🇪🇸 Español</a> | <a href="README_fra.md">🇫🇷 Français</a> | 🇮🇹 <b>Italiano</b> | <a href="README_deu.md">🇩🇪 Deutsch</a> | <a href="README_zho.md">🇨🇳 简体中文</a> | <a href="README_jpn.md">🇯🇵 日本語</a> | <a href="README_por.md">🇵🇹 Português</a></p>
 
 ### 🛑 Ponte di coordinamento fail-safe per celle laser
 
@@ -22,7 +22,7 @@ GPL-3.0-or-later - see LICENSE
 
 ---
 
-> **Verifica di onestà - cosa funziona davvero oggi:** lo snapshot di sicurezza a quattro segnali e il suo gate (`cell.py` con `LaserSafetySnapshot`/`LaserCellBridge`, che fa passare ogni lavoro attraverso il vero `evaluate_job()` di `HYDRA-UMC-SDK`), il normalizzatore di evidenze di sola lettura (`observation.py`), il vero lettore di interblocco GPIO (`gpio_safety.py` con `GpioSafetyProbe`, libgpiod v2), e il trasporto MQTT di stato/evidenza (`mqtt_transport.py`) sono reali e coperti da 65 casi `unittest` superati (`python tools/build_test.py`), incluso `tests/test_gpio_mqtt_emulator.py`, che esegue questo bridge contro un emulatore GPIO/MQTT fedele al protocollo ma scritto a mano. Nulla di tutto ciò ha toccato un vero chip GPIO, un vero broker MQTT, o un vero controller laser - `test_gpio_safety.py` legge contro un chip fittizio e `test_mqtt_transport.py` usa un client broker fittizio. Non esiste ancora un'integrazione concreta con software/controller laser, perché la macchina e la sua interfaccia documentata non sono disponibili - vedi "Stato attuale e prossimi passi" qui sotto, che lo dice già chiaramente, e `CHANGELOG.md` per cosa è stato esattamente consegnato finora.
+> **Verifica di onestà - cosa funziona davvero oggi:** lo snapshot di sicurezza a quattro segnali e il suo gate (`cell.py` con `LaserSafetySnapshot`/`LaserCellBridge`, che fa passare ogni lavoro attraverso il vero `evaluate_job()` di `HYDRA-UMC-SDK`), il normalizzatore di evidenze di sola lettura (`observation.py`), il vero lettore di interblocco GPIO (`gpio_safety.py` con `GpioSafetyProbe`, libgpiod v2), e il trasporto MQTT di stato/evidenza (`mqtt_transport.py`) sono reali e coperti da 68 casi `unittest` superati (`python tools/build_test.py`), incluso `tests/test_gpio_mqtt_emulator.py`, che esegue questo bridge contro un emulatore GPIO/MQTT fedele al protocollo ma scritto a mano. Nulla di tutto ciò ha toccato un vero chip GPIO, un vero broker MQTT, o un vero controller laser - `test_gpio_safety.py` legge contro un chip fittizio e `test_mqtt_transport.py` usa un client broker fittizio. Non esiste ancora un'integrazione concreta con software/controller laser, perché la macchina e la sua interfaccia documentata non sono disponibili - vedi "Stato attuale e prossimi passi" qui sotto, che lo dice già chiaramente, e `CHANGELOG.md` per cosa è stato esattamente consegnato finora.
 
 ---
 
@@ -41,6 +41,7 @@ Appartiene alla famiglia **External Automation Bridges**: un insieme di reposito
 * ✅ **Monitoraggio degli interblocchi in tempo reale:** `open_gpio_edge_watcher()`/`watch_for_interlock_edges()` si bloccano sulle notifiche di eventi di fronte del kernel proprie di libgpiod v2 (`Edge.BOTH`) invece di rileggere solo i livelli quando arriva un messaggio MQTT non correlato - gli argomenti opzionali `gpio_chip_path`/`key_line_offset`/`enclosure_line_offset`/`interlock_line_offset` di `run_forever()` avviano un thread daemon in background che pubblica uno `state` trattenuto e aggiornato nell'istante in cui una linea chiave/carcassa/interblocco cambia stato. Ometterli mantiene invariato il precedente comportamento solo su richiesta. *(implementato, testato in `tests/test_gpio_safety.py`)*
 * ✅ **Build/test non mutante:** `build-test.bat`/`.sh` compilano il codice sorgente ed eseguono la suite di test della porta di sicurezza senza toccare i file di versione o il CHANGELOG. *(implementato, vedi COMPILAZIONE ED ESECUZIONE più sotto)*
 * 🔜 **Integrazione concreta con controllore/software laser** — deliberatamente rimandata fino a quando la macchina e la sua interfaccia documentata non saranno disponibili. *(pianificato)*
+* ✅ **Chiavi di idempotenza ripetute:** `LaserMqttBridge` accetta un `IdempotencyStore`: una chiave di lavoro ripetuta riceve la risposta data la prima volta invece di essere valutata di nuovo. *(implementato, testato in `tests/test_idempotency.py`)*
 
 ---
 
@@ -85,6 +86,7 @@ HYDRA-UMC-BRIDGE-LASER/
 │   ├── test_observation.py      # L'evidenza di sicurezza mancante fallisce fail-closed
 │   ├── test_gpio_safety.py      # Letture GPIO di sicurezza reali contro un chip fittizio, incl. percorsi fail-closed
 │   ├── test_mqtt_transport.py   # Test di forma stato/evidenza MQTT contro un client broker fittizio
+│   ├── test_idempotency.py      # Una chiave di idempotenza ripetuta riceve una sola risposta
 │   ├── gpio_mqtt_emulator.py    # Emulatore GPIO/MQTT fedele al protocollo (test double realistico)
 │   └── test_gpio_mqtt_emulator.py # Comportamento del bridge rispetto all'emulatore GPIO/MQTT
 ├── tools/
@@ -123,13 +125,13 @@ bash build-test.sh
 bash build.sh
 ```
 
-`build-test` compila ogni modulo sotto `src/` con `py_compile` ed esegue l'intera suite `unittest` individuata sotto `tests/` (`test_cell.py`, `test_observation.py`, `test_gpio_safety.py`, `test_mqtt_transport.py`, `test_gpio_mqtt_emulator.py` - 65 test), dimostrando l'ammissione in riposo sicuro, il rifiuto involucro e l'inoltro dell'abort tra tutto il resto coperto — non modifica mai il repository. `build` esegue prima quella stessa validazione e, solo in caso di successo, chiama `tools/bump_version.py` per sincronizzare la versione in `pyproject.toml`, `hydra-umc.project.json` e `CHANGELOG.md`. Non esiste ancora un comando `run` laser reale — serve un'integrazione del controllore validata e sicura.
+`build-test` compila ogni modulo sotto `src/` con `py_compile` ed esegue l'intera suite `unittest` individuata sotto `tests/` (`test_cell.py`, `test_observation.py`, `test_gpio_safety.py`, `test_mqtt_transport.py`, `test_gpio_mqtt_emulator.py` - 68 test), dimostrando l'ammissione in riposo sicuro, il rifiuto involucro e l'inoltro dell'abort tra tutto il resto coperto — non modifica mai il repository. `build` esegue prima quella stessa validazione e, solo in caso di successo, chiama `tools/bump_version.py` per sincronizzare la versione in `pyproject.toml`, `hydra-umc.project.json` e `CHANGELOG.md`. Non esiste ancora un comando `run` laser reale — serve un'integrazione del controllore validata e sicura.
 
 ---
 
 ## ✅ STATO ATTUALE E PROSSIMI PASSI
 
-**Reale oggi:** versione `0.1.2`, un nucleo di pianificazione fail-safe testato in locale (`LaserSafetySnapshot` + `LaserCellBridge`) appoggiato sulla porta di lavoro condivisa di `HYDRA-UMC-SDK`, normalizzazione rigorosa e in sola lettura dell'evidenza di sicurezza che distingue un lavoro realmente in pausa (`HOLDING`) da uno realmente in taglio (`RUNNING`), una lettura GPIO reale e neutrale rispetto al controllore (`GpioSafetyProbe`) per le 3 protezioni indipendenti chiave/involucro/interblocco, un vero trasporto MQTT di stato/evidenza (`mqtt_transport.py`), una suite `unittest` deterministica di sessantacinque test, e script build-test non mutanti collegati alla CI con checkout dell'SDK.
+**Reale oggi:** versione `0.1.3`, un nucleo di pianificazione fail-safe testato in locale (`LaserSafetySnapshot` + `LaserCellBridge`) appoggiato sulla porta di lavoro condivisa di `HYDRA-UMC-SDK`, normalizzazione rigorosa e in sola lettura dell'evidenza di sicurezza che distingue un lavoro realmente in pausa (`HOLDING`) da uno realmente in taglio (`RUNNING`), una lettura GPIO reale e neutrale rispetto al controllore (`GpioSafetyProbe`) per le 3 protezioni indipendenti chiave/involucro/interblocco, un vero trasporto MQTT di stato/evidenza (`mqtt_transport.py`), una suite `unittest` deterministica di sessantotto test, e script build-test non mutanti collegati alla CI con checkout dell'SDK.
 
 **Confine di integrazione:** l'involucro, la chiave e l'interblocco certificati del controllore laser stesso non vengono mai aggirati; questo ponte regola solo il lavoro robotico *ausiliario* attorno ad esso, e solo leggendo il suo stato riportato.
 
