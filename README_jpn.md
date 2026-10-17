@@ -22,7 +22,7 @@ GPL-3.0-or-later - see LICENSE
 
 ---
 
-> **誠実性チェック - 今日実際に動くもの:** 4信号の安全スナップショットとそのゲート（`cell.py` の `LaserSafetySnapshot`/`LaserCellBridge`。すべてのジョブは `HYDRA-UMC-SDK` 自身の本物の `evaluate_job()` を通過する）、読み取り専用のエビデンス正規化（`observation.py`）、本物の GPIO インターロック読み取り部（`gpio_safety.py` の `GpioSafetyProbe`、libgpiod v2）、および MQTT 状態/エビデンストランスポート（`mqtt_transport.py`）は本物であり、68件の通過する `unittest` ケースで検証されている（`python tools/build_test.py`）。これにはプロトコルに忠実な手書きの GPIO/MQTT エミュレータに対してこのブリッジを動かす `tests/test_gpio_mqtt_emulator.py` も含まれる。これらはいずれも本物の GPIO チップ、本物の MQTT ブローカー、実際のレーザーコントローラには一切触れていない - `test_gpio_safety.py` は模擬チップに対して読み取りを行い、`test_mqtt_transport.py` も模擬ブローカークライアントを使用している。対象の機械とその文書化されたインターフェースがまだ利用できないため、具体的なレーザーコントローラ・ソフトウェア統合もまだ存在しない - 詳細は下記の「現状と次のステップ」に既に明記されており、これまでに実際に出荷された内容は `CHANGELOG.md` を参照。
+> **誠実性チェック - 今日実際に動くもの:** 4信号の安全スナップショットとそのゲート（`cell.py` の `LaserSafetySnapshot`/`LaserCellBridge`。すべてのジョブは `HYDRA-UMC-SDK` 自身の本物の `evaluate_job()` を通過する）、読み取り専用のエビデンス正規化（`observation.py`）、本物の GPIO インターロック読み取り部（`gpio_safety.py` の `GpioSafetyProbe`、libgpiod v2）、および MQTT 状態/エビデンストランスポート（`mqtt_transport.py`）は本物であり、72件の通過する `unittest` ケースで検証されている（`python tools/build_test.py`）。これにはプロトコルに忠実な手書きの GPIO/MQTT エミュレータに対してこのブリッジを動かす `tests/test_gpio_mqtt_emulator.py` も含まれる。これらはいずれも本物の GPIO チップ、本物の MQTT ブローカー、実際のレーザーコントローラには一切触れていない - `test_gpio_safety.py` は模擬チップに対して読み取りを行い、`test_mqtt_transport.py` も模擬ブローカークライアントを使用している。対象の機械とその文書化されたインターフェースがまだ利用できないため、具体的なレーザーコントローラ・ソフトウェア統合もまだ存在しない - 詳細は下記の「現状と次のステップ」に既に明記されており、これまでに実際に出荷された内容は `CHANGELOG.md` を参照。
 
 ---
 
@@ -86,6 +86,7 @@ HYDRA-UMC-BRIDGE-LASER/
 │   ├── test_observation.py      # 安全性の証拠が欠けている場合はfail-closedで失敗する
 │   ├── test_gpio_safety.py      # 疑似チップに対する実GPIO安全読み取りテスト(fail-closedパスを含む)
 │   ├── test_mqtt_transport.py   # 疑似ブローカークライアントに対するMQTTステータス/証拠形状テスト
+│   ├── test_mqtt_environment.py # サービス環境の MQTT 認証情報と TLS がクライアントに届く
 │   ├── test_idempotency.py      # 重複した冪等キーには一度だけ応答する
 │   ├── gpio_mqtt_emulator.py    # プロトコル忠実な GPIO/MQTT エミュレータ（現実的なテストダブル）
 │   └── test_gpio_mqtt_emulator.py # GPIO/MQTT エミュレータに対する bridge の振る舞い
@@ -125,13 +126,13 @@ bash build-test.sh
 bash build.sh
 ```
 
-`build-test` は `src/` 配下の各モジュールを `py_compile` でコンパイルし、`tests/` 配下で検出される `unittest` の全スイート(`test_cell.py`、`test_observation.py`、`test_gpio_safety.py`、`test_mqtt_transport.py`、`test_gpio_mqtt_emulator.py` - 68件のテスト)を実行して、安全アイドル許可、エンクロージャー拒否、中止転送などを実証する —— リポジトリを一切変更しない。`build` はまず同じ検証を実行し、成功した場合のみ `tools/bump_version.py` を呼び出して `pyproject.toml`、`hydra-umc.project.json`、`CHANGELOG.md` の間でバージョンを同期する。実際のレーザー向け `run` コマンドはまだ存在しない —— それには検証済みで安全なコントローラー統合が必要である。
+`build-test` は `src/` 配下の各モジュールを `py_compile` でコンパイルし、`tests/` 配下で検出される `unittest` の全スイート(`test_cell.py`、`test_observation.py`、`test_gpio_safety.py`、`test_mqtt_transport.py`、`test_gpio_mqtt_emulator.py` - 72件のテスト)を実行して、安全アイドル許可、エンクロージャー拒否、中止転送などを実証する —— リポジトリを一切変更しない。`build` はまず同じ検証を実行し、成功した場合のみ `tools/bump_version.py` を呼び出して `pyproject.toml`、`hydra-umc.project.json`、`CHANGELOG.md` の間でバージョンを同期する。実際のレーザー向け `run` コマンドはまだ存在しない —— それには検証済みで安全なコントローラー統合が必要である。
 
 ---
 
 ## ✅ 現状と次のステップ
 
-**現時点で実在するもの:** バージョン `0.1.3`。ローカルでテスト済みのフェイルセーフな計画コア(`LaserSafetySnapshot` + `LaserCellBridge`)が `HYDRA-UMC-SDK` の共有ジョブゲートの上に構築されており、実際に一時停止中のジョブ(`HOLDING`)と実際に発振中のジョブ(`RUNNING`)を区別する厳密な読み取り専用安全証拠の正規化、キー/筐体/インターロックの3つの独立した保護機構のための実際の、コントローラーに依存しない GPIO インターロック読み取り(`GpioSafetyProbe`)、実際の MQTT 状態/エビデンストランスポート(`mqtt_transport.py`)、決定論的な68件の `unittest` スイートと、SDKチェックアウトを伴いCIに組み込まれた非破壊的なbuild-testスクリプトを備える。
+**現時点で実在するもの:** バージョン `0.1.4`。ローカルでテスト済みのフェイルセーフな計画コア(`LaserSafetySnapshot` + `LaserCellBridge`)が `HYDRA-UMC-SDK` の共有ジョブゲートの上に構築されており、実際に一時停止中のジョブ(`HOLDING`)と実際に発振中のジョブ(`RUNNING`)を区別する厳密な読み取り専用安全証拠の正規化、キー/筐体/インターロックの3つの独立した保護機構のための実際の、コントローラーに依存しない GPIO インターロック読み取り(`GpioSafetyProbe`)、実際の MQTT 状態/エビデンストランスポート(`mqtt_transport.py`)、決定論的な72件の `unittest` スイートと、SDKチェックアウトを伴いCIに組み込まれた非破壊的なbuild-testスクリプトを備える。
 
 **統合境界:** レーザーコントローラー自身の認証済みエンクロージャー、キースイッチ、インターロック権限は決してバイパスされない。このブリッジが調整するのはあくまでその周辺の*補助的な*ロボット作業のみであり、それもコントローラーが報告する状態を読み取ることによってのみ行う。
 

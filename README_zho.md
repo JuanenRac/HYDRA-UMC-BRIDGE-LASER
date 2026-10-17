@@ -22,7 +22,7 @@ GPL-3.0-or-later - see LICENSE
 
 ---
 
-> **诚实检查——今天真正可运行的部分：** 四信号安全快照及其门控（`cell.py` 中的 `LaserSafetySnapshot`/`LaserCellBridge`，每个任务都会经过 `HYDRA-UMC-SDK` 自身真正的 `evaluate_job()`）、只读的证据归一化器（`observation.py`）、真正的 GPIO 联锁读取器（`gpio_safety.py` 中的 `GpioSafetyProbe`，libgpiod v2），以及 MQTT 状态/证据传输（`mqtt_transport.py`）都是真实的，并由 68 个通过的 `unittest` 用例覆盖（`python tools/build_test.py`），其中包括让该桥接对抗一个协议忠实但纯手写的 GPIO/MQTT 模拟器的 `tests/test_gpio_mqtt_emulator.py`。以上这些都从未接触过真实的 GPIO 芯片、真实的 MQTT broker 或真实的激光控制器——`test_gpio_safety.py` 读取的是一个伪造芯片，`test_mqtt_transport.py` 使用的是一个伪造的 broker 客户端。目前还没有具体的激光控制器/软件集成，因为相应的机器及其文档化接口尚不可用——详见下文的"当前状态与后续步骤"（已经如实说明了这一点），以及 `CHANGELOG.md` 中目前具体已交付的内容。
+> **诚实检查——今天真正可运行的部分：** 四信号安全快照及其门控（`cell.py` 中的 `LaserSafetySnapshot`/`LaserCellBridge`，每个任务都会经过 `HYDRA-UMC-SDK` 自身真正的 `evaluate_job()`）、只读的证据归一化器（`observation.py`）、真正的 GPIO 联锁读取器（`gpio_safety.py` 中的 `GpioSafetyProbe`，libgpiod v2），以及 MQTT 状态/证据传输（`mqtt_transport.py`）都是真实的，并由 72 个通过的 `unittest` 用例覆盖（`python tools/build_test.py`），其中包括让该桥接对抗一个协议忠实但纯手写的 GPIO/MQTT 模拟器的 `tests/test_gpio_mqtt_emulator.py`。以上这些都从未接触过真实的 GPIO 芯片、真实的 MQTT broker 或真实的激光控制器——`test_gpio_safety.py` 读取的是一个伪造芯片，`test_mqtt_transport.py` 使用的是一个伪造的 broker 客户端。目前还没有具体的激光控制器/软件集成，因为相应的机器及其文档化接口尚不可用——详见下文的"当前状态与后续步骤"（已经如实说明了这一点），以及 `CHANGELOG.md` 中目前具体已交付的内容。
 
 ---
 
@@ -86,6 +86,7 @@ HYDRA-UMC-BRIDGE-LASER/
 │   ├── test_observation.py      # 缺失安全证据时 fail-closed 失败
 │   ├── test_gpio_safety.py      # 针对模拟芯片的真实 GPIO 安全读取测试,含 fail-closed 路径
 │   ├── test_mqtt_transport.py   # 针对模拟 broker 客户端的 MQTT 状态/证据格式测试
+│   ├── test_mqtt_environment.py # 服务环境中的 MQTT 凭据和 TLS 会传到客户端
 │   ├── test_idempotency.py      # 重复的幂等键只处理一次
 │   ├── gpio_mqtt_emulator.py    # 协议忠实的 GPIO/MQTT 模拟器（真实的测试替身）
 │   └── test_gpio_mqtt_emulator.py # 针对 GPIO/MQTT 模拟器的 bridge 行为
@@ -125,13 +126,13 @@ bash build-test.sh
 bash build.sh
 ```
 
-`build-test` 使用 `py_compile` 编译 `src/` 下的每个模块,并运行在 `tests/` 下发现的完整 `unittest` 套件(`test_cell.py`、`test_observation.py`、`test_gpio_safety.py`、`test_mqtt_transport.py`、`test_gpio_mqtt_emulator.py`——共 68 个测试),证明安全空闲准入、防护罩拒绝和中止转发等均按预期工作 —— 它绝不会修改仓库。`build` 会先运行同样的验证,只有成功后才调用 `tools/bump_version.py`,在 `pyproject.toml`、`hydra-umc.project.json` 和 `CHANGELOG.md` 之间同步版本号。目前尚无真正的激光 `run` 命令 —— 这需要经过验证且安全的控制器集成。
+`build-test` 使用 `py_compile` 编译 `src/` 下的每个模块,并运行在 `tests/` 下发现的完整 `unittest` 套件(`test_cell.py`、`test_observation.py`、`test_gpio_safety.py`、`test_mqtt_transport.py`、`test_gpio_mqtt_emulator.py`——共 72 个测试),证明安全空闲准入、防护罩拒绝和中止转发等均按预期工作 —— 它绝不会修改仓库。`build` 会先运行同样的验证,只有成功后才调用 `tools/bump_version.py`,在 `pyproject.toml`、`hydra-umc.project.json` 和 `CHANGELOG.md` 之间同步版本号。目前尚无真正的激光 `run` 命令 —— 这需要经过验证且安全的控制器集成。
 
 ---
 
 ## ✅ 当前状态与后续步骤
 
-**目前真实的部分:** 版本 `0.1.3`,一个已在本地测试过的故障安全规划核心(`LaserSafetySnapshot` + `LaserCellBridge`),依托 `HYDRA-UMC-SDK` 的共享任务门控,包含严格的只读安全证据标准化,能区分真正暂停的任务(`HOLDING`)与真正正在切割的任务(`RUNNING`),一个真实的、与控制器无关的 GPIO 联锁读取(`GpioSafetyProbe`),覆盖钥匙/外壳/联锁这 3 项独立防护,一个真实的 MQTT 状态/证据传输(`mqtt_transport.py`),配有确定性的六十八项 `unittest` 测试套件,以及已接入 CI 并带 SDK 检出的非变更式 build-test 脚本。
+**目前真实的部分:** 版本 `0.1.4`,一个已在本地测试过的故障安全规划核心(`LaserSafetySnapshot` + `LaserCellBridge`),依托 `HYDRA-UMC-SDK` 的共享任务门控,包含严格的只读安全证据标准化,能区分真正暂停的任务(`HOLDING`)与真正正在切割的任务(`RUNNING`),一个真实的、与控制器无关的 GPIO 联锁读取(`GpioSafetyProbe`),覆盖钥匙/外壳/联锁这 3 项独立防护,一个真实的 MQTT 状态/证据传输(`mqtt_transport.py`),配有确定性的六十八项 `unittest` 测试套件,以及已接入 CI 并带 SDK 检出的非变更式 build-test 脚本。
 
 **集成边界:** 激光控制器自身已认证的防护罩、钥匙开关和联锁权限从不被绕过;本桥接只负责围绕它门控*辅助*机器人工作,且仅通过读取其上报的状态。
 
