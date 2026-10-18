@@ -15,7 +15,7 @@ GPL-3.0-or-later - see LICENSE
 ### 🛑 面向激光单元的故障安全协调桥接
 
 <p align="center">
-  <img src="https://img.shields.io/badge/许可证-GPL%203.0-blue.svg" alt="GPL 3.0">
+  <img src="https://img.shields.io/badge/许可证-GPL%203.0--or--later-blue.svg" alt="GPL 3.0 or later">
   <img src="https://img.shields.io/badge/Python-3.11%2B-3776AB.svg" alt="Python 3.11+">
   <img src="https://img.shields.io/badge/Safety-Fails%20Closed-red.svg" alt="故障安全">
 </p>
@@ -134,7 +134,7 @@ bash build.sh
 
 ## ✅ 当前状态与后续步骤
 
-**目前真实的部分:** 版本 `0.1.6`,一个已在本地测试过的故障安全规划核心(`LaserSafetySnapshot` + `LaserCellBridge`),依托 `HYDRA-UMC-SDK` 的共享任务门控,包含严格的只读安全证据标准化,能区分真正暂停的任务(`HOLDING`)与真正正在切割的任务(`RUNNING`),一个真实的、与控制器无关的 GPIO 联锁读取(`GpioSafetyProbe`),覆盖钥匙/外壳/联锁这 3 项独立防护,一个真实的 MQTT 状态/证据传输(`mqtt_transport.py`),配有确定性的96项 `unittest` 测试套件,以及已接入 CI 并带 SDK 检出的非变更式 build-test 脚本。
+**目前真实的部分:** 版本 `0.1.7`,一个已在本地测试过的故障安全规划核心(`LaserSafetySnapshot` + `LaserCellBridge`),依托 `HYDRA-UMC-SDK` 的共享任务门控,包含严格的只读安全证据标准化,能区分真正暂停的任务(`HOLDING`)与真正正在切割的任务(`RUNNING`),一个真实的、与控制器无关的 GPIO 联锁读取(`GpioSafetyProbe`),覆盖钥匙/外壳/联锁这 3 项独立防护,一个真实的 MQTT 状态/证据传输(`mqtt_transport.py`),配有确定性的96项 `unittest` 测试套件,以及已接入 CI 并带 SDK 检出的非变更式 build-test 脚本。
 
 **集成边界:** 激光控制器自身已认证的防护罩、钥匙开关和联锁权限从不被绕过;本桥接只负责围绕它门控*辅助*机器人工作,且仅通过读取其上报的状态。
 

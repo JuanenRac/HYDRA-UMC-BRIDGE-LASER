@@ -6,6 +6,11 @@ GPL-3.0-or-later - see LICENSE
 
 # Changelog
 
+## [0.1.7]
+
+- Successful incremental build: synchronized package metadata and `hydra-umc.project.json`.
+- The licence is written as GPL-3.0-or-later in every header and in the package metadata.
+
 ## [0.1.6] - Maturity lowered to functional
 - Maturity is functional: the code, tests and documentation are in place, but nothing here has been verified on real hardware yet, so the manifest no longer claims the established level.
 
@@ -21,7 +26,7 @@ GPL-3.0-or-later - see LICENSE
 - **A retained state can be judged.** `state` carries `observed_at` (epoch milliseconds); `availability` is `online` once connected and the broker publishes `offline` (Last Will) when the bridge dies.
 - **GRBL-style controller states.** `Hold:0`, `Alarm:1`, `Door:1`, `Jog` and `Home` are understood (the substate is dropped, as the CNC bridge does) instead of falling to `OFFLINE`.
 - **paho-mqtt.** The client uses the version 2 callback API, which also starts with paho-mqtt 2.0; the extra now requires `paho-mqtt>=2.1,<3`.
-- `tools/inspect_controller_evidence.py` reports the canonical `SAFE_STOP` value on failure; the unused `subprocess` import of `tools/ci_validate.py` is gone; `LICENSE` now carries the complete GPL-3.0 text.
+- `tools/inspect_controller_evidence.py` reports the canonical `SAFE_STOP` value on failure; the unused `subprocess` import of `tools/ci_validate.py` is gone; `LICENSE` now carries the complete GPL-3.0-or-later text.
 - README (all eight languages) and `docs/` updated: test counts and test file list, the "four-signal" wording (three safeguards plus the controller state), the real-time monitoring now described as one shared request, the HYDRA-UMC-SERVER path that does not exist is no longer drawn, and LightBurn/LaserGRBL are stated as not supported.
 - New `tests/test_hardening.py` (hostile payloads, a fake `gpiod` proving the single request and the declared wiring, the failing watcher, controller states, the dispatcher).
 
