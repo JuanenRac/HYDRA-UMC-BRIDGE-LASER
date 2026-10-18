@@ -24,6 +24,17 @@ GPL-3.0-or-later - see LICENSE
 
 > **Verificação de honestidade - o que realmente corre hoje:** o instantâneo de segurança de quatro sinais e a porta (o `LaserSafetySnapshot`/`LaserCellBridge` de `cell.py`, que encaminha cada trabalho pelo `evaluate_job()` do próprio `HYDRA-UMC-SDK`), o normalizador só de leitura de evidência (`observation.py`), o leitor real de interlocks por GPIO (o `GpioSafetyProbe` de `gpio_safety.py`, libgpiod v2) e o transporte MQTT de estado/evidência (`mqtt_transport.py`) são reais e estão cobertos por 96 casos `unittest` que passam (`python tools/build_test.py`), incluindo `tests/test_gpio_mqtt_emulator.py`, que executa este bridge contra um emulador de GPIO/MQTT escrito à mão e fiel ao protocolo. Nada disto tocou num chip GPIO real, num broker MQTT real nem num controlador laser verdadeiro: `test_gpio_safety.py` lê contra um chip falso e `test_mqtt_transport.py` usa um cliente de broker falso. Ainda não há integração concreta com um controlador/software laser, porque a máquina e a sua interface documentada não estão disponíveis; ver «Estado atual e próximos passos» abaixo, que já o diz com clareza, e `CHANGELOG.md` para saber exatamente o que foi entregue até agora.
 
+## 📋 Num relance
+
+| | |
+|---|---|
+| Versão | `0.1.7` |
+| Maturidade | Funcional |
+| Testes | 96 (`python tools/build_test.py`) |
+| Tecnologia | Python / Laser controller / G-code / Safety evidence / GPIO interlock reading |
+| Destino | O Raspberry Pi CM5 de uma célula HYDRA-UMC |
+| Em hardware real | Só simulado: testado com emuladores, dublês de teste ou simuladores; não há registo de execução em hardware real para esta versão |
+
 ## 1. 🛠️ VISÃO TÉCNICA GERAL
 
 O **HYDRA-UMC-BRIDGE-LASER** é o bridge de alto nível para células laser e auxiliares robóticos do HYDRA-UMC. Pode coordenar tarefas periféricas seguras, como a entrega de material, mas **nunca** pode armar, disparar nem anular um controlador laser: são observações que lê, não autoridades que detém.

@@ -26,6 +26,17 @@ GPL-3.0-or-later - see LICENSE
 
 ---
 
+## 📋 速览
+
+| | |
+|---|---|
+| 版本 | `0.1.7` |
+| 成熟度 | 可用 |
+| 测试 | 96 (`python tools/build_test.py`) |
+| 技术栈 | Python / Laser controller / G-code / Safety evidence / GPIO interlock reading |
+| 目标 | HYDRA-UMC 工作单元的 Raspberry Pi CM5 |
+| 真实硬件 | 仅模拟：使用模拟器、替身或仿真测试；此版本没有在真实硬件上运行的记录 |
+
 ## 1. 🛠️ 技术概览
 
 **HYDRA-UMC-BRIDGE-LASER** 是激光单元与 HYDRA-UMC 机器人辅助设备之间的高层桥接。它可以协调诸如物料交接之类的安全外围任务,但**绝不能**为激光控制器解锁、触发或越权操作——那些是它读取的观测量,而不是它拥有的权限。

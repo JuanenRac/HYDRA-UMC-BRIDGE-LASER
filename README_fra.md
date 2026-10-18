@@ -26,6 +26,17 @@ GPL-3.0-or-later - see LICENSE
 
 ---
 
+## 📋 En un coup d'œil
+
+| | |
+|---|---|
+| Version | `0.1.7` |
+| Maturité | Fonctionnel |
+| Tests | 96 (`python tools/build_test.py`) |
+| Technologie | Python / Laser controller / G-code / Safety evidence / GPIO interlock reading |
+| Cible | Le Raspberry Pi CM5 d'une cellule HYDRA-UMC |
+| Sur matériel réel | Simulé seulement : testé avec des émulateurs, des doubles de test ou des simulateurs ; aucune exécution sur du matériel réel n'est consignée pour cette version |
+
 ## 1. 🛠️ APERÇU TECHNIQUE
 
 **HYDRA-UMC-BRIDGE-LASER** est le pont haut niveau pour les cellules laser et les auxiliaires robotiques HYDRA-UMC. Il peut coordonner des tâches périphériques sûres comme le transfert de matière, mais il ne peut **jamais** armer, déclencher ou outrepasser un contrôleur laser — ce sont des observations qu'il lit, pas des autorités qu'il détient.
