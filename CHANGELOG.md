@@ -6,6 +6,9 @@ GPL-3.0-or-later - see LICENSE
 
 # Changelog
 
+## [0.1.6] - Maturity lowered to functional
+- Maturity is functional: the code, tests and documentation are in place, but nothing here has been verified on real hardware yet, so the manifest no longer claims the established level.
+
 ## [0.1.5] - One GPIO request for levels and edges, declared wiring, and a watcher that says when it fails
 
 - **The levels and the edge watcher share ONE line request.** The kernel lets a GPIO line belong to one request at a time: opening the same three lines again for the watcher was refused as busy. `open_gpio_safety()` makes a single request (`INPUT`, `Edge.BOTH`) and returns the three level readers and the watcher; it replaces `open_gpio_safety_lines()` and `open_gpio_edge_watcher()`. `run_forever()` takes `edge_watcher=` instead of the chip path and three offsets.
