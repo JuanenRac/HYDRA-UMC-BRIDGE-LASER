@@ -24,10 +24,15 @@ class LaserSafetySnapshot:
             return MachineState.SAFE_STOP
         if not isinstance(self.controller_state, str):
             return MachineState.OFFLINE
-        state = self.controller_state.upper()
+        # GRBL-family controllers (LaserGRBL, LightBurn in GRBL mode) report
+        # "Hold:0"/"Hold:1", "Door:0".."Door:3", "Alarm:n" with a numeric
+        # substate, and also "Jog", "Home" and "Check": the substate is
+        # dropped before matching, the way the CNC bridge does, so that
+        # "Alarm:1" is a FAULT and not an unknown (OFFLINE) token.
+        state = self.controller_state.upper().split(":")[0]
         if state == "IDLE":
             return MachineState.IDLE
-        if state in {"RUN", "RUNNING"}:
+        if state in {"RUN", "RUNNING", "JOG", "HOME"}:
             return MachineState.RUNNING
         # A paused job means the beam is not actively cutting/engraving - a
         # real, safety-relevant distinction from RUNNING, not just a naming
@@ -38,10 +43,12 @@ class LaserSafetySnapshot:
         # CNC (GRBL Hold) bridges. Does not change any dispatch decision -
         # evaluate_job() only permits productive work on IDLE either way -
         # only the accuracy of the reported state.
-        if state == "PAUSED":
+        if state in {"PAUSED", "HOLD"}:
             return MachineState.HOLDING
         if state in {"FAULT", "ALARM", "ERROR"}:
             return MachineState.FAULT
+        if state == "DOOR":
+            return MachineState.SAFE_STOP
         return MachineState.OFFLINE
 
 

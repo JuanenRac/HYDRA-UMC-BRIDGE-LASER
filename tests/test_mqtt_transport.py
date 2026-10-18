@@ -312,36 +312,22 @@ class EdgeWatchOnChangeTests(unittest.TestCase):
 
 
 class StartEdgeWatchThreadTests(unittest.TestCase):
-    def test_opens_the_watcher_with_the_given_chip_and_offsets_and_starts_a_daemon_thread(self):
+    def test_hands_the_given_watcher_to_the_loop_on_a_daemon_thread(self):
         from hydra_umc_bridge_laser.mqtt_transport import start_edge_watch_thread
-
-        opened_with = {}
-
-        def fake_open_watcher(chip_path, key_offset, enclosure_offset, interlock_offset):
-            opened_with["args"] = (chip_path, key_offset, enclosure_offset, interlock_offset)
-            return object()
 
         watch_calls = []
 
         def fake_watch(source, on_change, **kwargs):
             watch_calls.append((source, on_change, kwargs))
 
-        real_bridge = bridge()
-        thread = start_edge_watch_thread(
-            real_bridge,
-            lambda publish: None,
-            "/dev/gpiochip0",
-            0,
-            1,
-            2,
-            open_watcher=fake_open_watcher,
-            watch=fake_watch,
-        )
+        watcher = object()
+        thread = start_edge_watch_thread(bridge(), lambda publish: None, watcher, watch=fake_watch)
         thread.join(timeout=2)
 
-        self.assertEqual(opened_with["args"], ("/dev/gpiochip0", 0, 1, 2))
         self.assertTrue(thread.daemon)
         self.assertEqual(len(watch_calls), 1)
+        self.assertIs(watch_calls[0][0], watcher)
+        self.assertIn("on_failure", watch_calls[0][2])
 
 
 if __name__ == "__main__":

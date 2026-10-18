@@ -81,9 +81,9 @@ class GpioLineReaderProtocolTests(unittest.TestCase):
         self.assertNotIsInstance(NotALine(), GpioLineReader)
 
 
-class OpenGpioSafetyLinesTests(unittest.TestCase):
+class OpenGpioSafetyTests(unittest.TestCase):
     def test_missing_gpiod_raises_a_clear_runtime_error_not_an_import_error(self):
-        from hydra_umc_bridge_laser import open_gpio_safety_lines
+        from hydra_umc_bridge_laser import GpioLineSettings, open_gpio_safety
 
         try:
             import gpiod  # noqa: F401
@@ -91,23 +91,9 @@ class OpenGpioSafetyLinesTests(unittest.TestCase):
             self.skipTest("gpiod is installed in this environment - nothing to prove here")
         except ImportError:
             pass
+        wiring = GpioLineSettings(active_low=False)
         with self.assertRaises(RuntimeError) as context:
-            open_gpio_safety_lines("/dev/gpiochip0", 0, 1, 2)
-        self.assertIn("gpiod is not installed", str(context.exception))
-
-
-class OpenGpioEdgeWatcherTests(unittest.TestCase):
-    def test_missing_gpiod_raises_a_clear_runtime_error_not_an_import_error(self):
-        from hydra_umc_bridge_laser import open_gpio_edge_watcher
-
-        try:
-            import gpiod  # noqa: F401
-
-            self.skipTest("gpiod is installed in this environment - nothing to prove here")
-        except ImportError:
-            pass
-        with self.assertRaises(RuntimeError) as context:
-            open_gpio_edge_watcher("/dev/gpiochip0", 0, 1, 2)
+            open_gpio_safety("/dev/gpiochip0", 0, 1, 2, key=wiring, enclosure=wiring, interlock=wiring)
         self.assertIn("gpiod is not installed", str(context.exception))
 
 

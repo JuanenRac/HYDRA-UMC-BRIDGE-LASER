@@ -6,6 +6,22 @@ GPL-3.0-or-later - see LICENSE
 
 # Changelog
 
+## [0.1.5] - One GPIO request for levels and edges, declared wiring, and a watcher that says when it fails
+
+- **The levels and the edge watcher share ONE line request.** The kernel lets a GPIO line belong to one request at a time: opening the same three lines again for the watcher was refused as busy. `open_gpio_safety()` makes a single request (`INPUT`, `Edge.BOTH`) and returns the three level readers and the watcher; it replaces `open_gpio_safety_lines()` and `open_gpio_edge_watcher()`. `run_forever()` takes `edge_watcher=` instead of the chip path and three offsets.
+- **The wiring is declared, not guessed.** Each safeguard takes a `GpioLineSettings` with a required `active_low`, a `bias` (the default is the fail-safe one: pull-up for an active-low signal, pull-down for an active-high one, so a cut wire reads as unsafe) and a `debounce_ms` (10 ms by default). The three lines must be three different offsets. A new wiring guide (`docs/WIRING_GUIDE.md`) explains polarity, normally-closed contacts, bias and debounce.
+- **One read, one lock.** The three levels are read in one operation (`get_values()`), and the MQTT thread and the watcher read under the same lock, because libgpiod request objects are not thread-safe.
+- **Any failure while reading fails closed.** Not only `OSError`: libgpiod v2 raises errors that are not (for example a released request); all three safeguards read as unsatisfied.
+- **The watcher no longer dies in silence.** A failure while waiting, reading or publishing publishes a retained, fail-closed `state` (`SAFE_STOP`, every safeguard unsatisfied, with the reason) and the watcher tries again; nobody keeps reading an old "healthy".
+- **The loop survives anything a client sends.** Deeply nested JSON, a payload larger than 16 KiB, an unreadable payload and any unexpected failure while handling a message are answered with a refusal on the result topic instead of ending `loop_forever()`. Messages are handled off the network thread, in order.
+- **`cmd/job` answers say what they are.** The result carries `"mode": "gate-only"`; an `ABORT` says `"forwarded": false` and that nothing was stopped (this bridge cannot stop a laser; the physical E-STOP does). Idempotency keys are namespaced (`job:<key>`) and a failure leaves an explicit answer for the key.
+- **A retained state can be judged.** `state` carries `observed_at` (epoch milliseconds); `availability` is `online` once connected and the broker publishes `offline` (Last Will) when the bridge dies.
+- **GRBL-style controller states.** `Hold:0`, `Alarm:1`, `Door:1`, `Jog` and `Home` are understood (the substate is dropped, as the CNC bridge does) instead of falling to `OFFLINE`.
+- **paho-mqtt.** The client uses the version 2 callback API, which also starts with paho-mqtt 2.0; the extra now requires `paho-mqtt>=2.1,<3`.
+- `tools/inspect_controller_evidence.py` reports the canonical `SAFE_STOP` value on failure; the unused `subprocess` import of `tools/ci_validate.py` is gone; `LICENSE` now carries the complete GPL-3.0 text.
+- README (all eight languages) and `docs/` updated: test counts and test file list, the "four-signal" wording (three safeguards plus the controller state), the real-time monitoring now described as one shared request, the HYDRA-UMC-SERVER path that does not exist is no longer drawn, and LightBurn/LaserGRBL are stated as not supported.
+- New `tests/test_hardening.py` (hostile payloads, a fake `gpiod` proving the single request and the declared wiring, the failing watcher, controller states, the dispatcher).
+
 ## [0.1.4] - Connects to a broker that demands credentials: user, password and TLS from the environment
 
 - The MQTT client now takes its credentials and TLS from the environment of the service (`HYDRA_MQTT_USERNAME`, `HYDRA_MQTT_PASSWORD` or `HYDRA_MQTT_PASSWORD_FILE`, `HYDRA_MQTT_TLS_CA`) through `hydra_umc_sdk.mqtt_connection`, so it can reach a production HYDRA-UMC-MQTT-BROKER, which refuses anonymous clients and evaluates its ACL for the identity of the credential.

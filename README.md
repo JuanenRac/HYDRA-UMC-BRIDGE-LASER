@@ -22,7 +22,7 @@ GPL-3.0-or-later - see LICENSE
 
 ---
 
-> **Honesty check - what actually runs today:** the four-signal safety snapshot and gate (`cell.py`'s `LaserSafetySnapshot`/`LaserCellBridge`, funneling every job through `HYDRA-UMC-SDK`'s own `evaluate_job()`), the read-only evidence normalizer (`observation.py`), the real GPIO interlock reader (`gpio_safety.py`'s `GpioSafetyProbe`, libgpiod v2), and the MQTT status/evidence transport (`mqtt_transport.py`) are real and covered by 72 passing `unittest` cases (`python tools/build_test.py`), including `tests/test_gpio_mqtt_emulator.py` running this bridge against a protocol-faithful, hand-written GPIO/MQTT emulator. None of it has touched a real GPIO chip, a real MQTT broker, or an actual laser controller - `test_gpio_safety.py` reads against a fake chip and `test_mqtt_transport.py` uses a fake broker client. There is no concrete laser controller/software integration yet, because the machine and its documented interface aren't available - see "Current Status & Next Steps" below, which already says this plainly, and `CHANGELOG.md` for exactly what has shipped so far.
+> **Honesty check - what actually runs today:** the four-signal safety snapshot and gate (`cell.py`'s `LaserSafetySnapshot`/`LaserCellBridge`, funneling every job through `HYDRA-UMC-SDK`'s own `evaluate_job()`), the read-only evidence normalizer (`observation.py`), the real GPIO interlock reader (`gpio_safety.py`'s `GpioSafetyProbe`, libgpiod v2), and the MQTT status/evidence transport (`mqtt_transport.py`) are real and covered by 96 passing `unittest` cases (`python tools/build_test.py`), including `tests/test_gpio_mqtt_emulator.py` running this bridge against a protocol-faithful, hand-written GPIO/MQTT emulator. None of it has touched a real GPIO chip, a real MQTT broker, or an actual laser controller - `test_gpio_safety.py` reads against a fake chip and `test_mqtt_transport.py` uses a fake broker client. There is no concrete laser controller/software integration yet, because the machine and its documented interface aren't available - see "Current Status & Next Steps" below, which already says this plainly, and `CHANGELOG.md` for exactly what has shipped so far.
 
 ---
 
@@ -34,14 +34,15 @@ It belongs to the **External Automation Bridges** family: a set of sibling repos
 
 ### Key Features:
 * ✅ **Real four-signal safety snapshot:** `cell.py`'s `LaserSafetySnapshot.machine_state()` requires the key switch enabled, the enclosure closed **and** the interlock healthy simultaneously — any one missing resolves to `SAFE_STOP`, before `controller_state` is even read. *(implemented, tested in `tests/test_cell.py`)*
-* ✅ **Real shared safety gate:** every observed job is re-evaluated through `evaluate_job()` from `HYDRA-UMC-SDK`'s `bridge_contract`, the same gate every sibling bridge and HYDRA-UMC-SERVER use. *(implemented)*
+* ✅ **Real shared safety gate:** every observed job is re-evaluated through `evaluate_job()` from `HYDRA-UMC-SDK`'s `bridge_contract`, the same gate every sibling bridge uses. *(implemented)*
 * ✅ **Conservative state mapping:** only `IDLE` is treated as idle; `RUN`/`RUNNING` maps to `RUNNING`, `PAUSED` maps to `HOLDING` (a real, distinct condition - the beam is not actively cutting/engraving), `FAULT`/`ALARM`/`ERROR` map to `FAULT`, and anything unrecognized falls back to `OFFLINE`. *(implemented)*
 * ✅ **Read-only safety evidence:** `observation.py` accepts only genuine Boolean key, enclosure and interlock signals; missing, numeric or text-like values fail closed. It cannot arm or fire a laser. *(implemented, tested in `tests/test_observation.py`)*
 * ✅ **Real, controller-neutral GPIO interlock reading:** `gpio_safety.py`'s `GpioSafetyProbe` reads the same 3 independent safeguards from real GPIO lines (libgpiod v2) instead of a saved mapping - deliberately controller-agnostic, since a key switch/door sensor/interlock relay is universal across laser cutters regardless of brand. A GPIO read failure fails all 3 safeguards closed. *(implemented, tested in `tests/test_gpio_safety.py`)*
-* ✅ **Real-time interlock monitoring:** `open_gpio_edge_watcher()`/`watch_for_interlock_edges()` block on libgpiod v2's own kernel edge-event notifications (`Edge.BOTH`) instead of only re-reading levels when an unrelated MQTT message happens to ask - `run_forever()`'s optional `gpio_chip_path`/`key_line_offset`/`enclosure_line_offset`/`interlock_line_offset` arguments start a background daemon thread that publishes an updated, retained `state` the instant a key/enclosure/interlock line transitions. Omitting them keeps the previous on-demand-only behavior unchanged. *(implemented, tested in `tests/test_gpio_safety.py`)*
+* ✅ **Real-time interlock monitoring:** `open_gpio_safety()` opens the key, enclosure and interlock lines ONCE (`INPUT`, `Edge.BOTH`) and serves both the level readers and the edge watcher from that single request - the kernel refuses a second request for the same lines. `watch_for_interlock_edges()` blocks on libgpiod v2's own kernel edge-event notifications instead of only re-reading levels when an unrelated MQTT message happens to ask, and `run_forever(edge_watcher=...)` starts a background daemon thread that publishes an updated, retained `state` the instant a line transitions; if the watcher fails it publishes a fail-closed `state` (`SAFE_STOP`, with the reason) and keeps trying. Each line's wiring is declared (`GpioLineSettings`: `active_low`, `bias` - the default makes a cut wire read as unsafe - and `debounce_ms`); see `docs/WIRING_GUIDE.md`. Not yet validated on a real GPIO chip. *(implemented, tested in `tests/test_gpio_safety.py` and, against a fake `gpiod`, `tests/test_hardening.py`)*
 * ✅ **Non-mutating build/test:** `build-test.bat`/`.sh` compile the source and run the deterministic safety-gate test suite without touching version files or CHANGELOG. *(implemented, see BUILD & RUN below)*
 * 🔜 **Concrete laser controller/software integration** — deliberately deferred until the machine and its documented interface are available; GPIO-level interlock reading is real today, a specific G-code/controller command path isn't. *(planned)*
 * ✅ **Repeated idempotency keys:** `LaserMqttBridge` accepts an `IdempotencyStore`: a repeated job key gets the answer given the first time instead of being evaluated again. *(implemented, tested in `tests/test_idempotency.py`)*
+* ✅ **Hardened MQTT loop and fail-closed reads:** a payload that is too large (over 16 KiB) or cannot be read, deeply nested JSON and any unexpected failure are answered with a refusal on the result topic and never end the loop; `cmd/job` answers say `"mode": "gate-only"` and an ABORT through it says that nothing was stopped (the physical E-STOP stops the laser); the state carries `observed_at` and the bridge announces itself on an `availability` topic with a Last Will; any exception while reading the GPIO lines - not only `OSError` - fails all three safeguards, and the three levels are read in one operation under a lock; GRBL-style controller states such as `Hold:0`, `Alarm:1`, `Door:1`, `Jog` and `Home` are understood. *(implemented, tested in `tests/test_hardening.py`)*
 
 ---
 
@@ -51,20 +52,19 @@ It belongs to the **External Automation Bridges** family: a set of sibling repos
 flowchart LR
     LASER["Laser Controller<br/>(state, key, enclosure, interlock)"] --> BRIDGE["BRIDGE-LASER<br/>LaserSafetySnapshot.machine_state()"]
     BRIDGE -- "BridgeJob + observed MachineState" --> SDK["HYDRA-UMC-SDK<br/>evaluate_job()"]
-    SDK -- GateDecision --> SERVER["HYDRA-UMC-SERVER"]
-    SERVER -- "job / abort" --> SAFETY["Independent Laser Safety"]
+    SDK -- GateDecision --> RESULT["MQTT: cmd/job/result"]
 ```
 
 ---
 
 ## 3. 🧱 ARCHITECTURE & DESIGN DECISIONS
 
-* **Why four independent safety observations instead of one boolean.** `LaserSafetySnapshot.machine_state()` checks `key_enabled`, `enclosure_closed` and `interlock_healthy` as three separate conditions — real laser safety needs every physical safeguard to be independently true; collapsing them into one flag would hide which one actually failed.
+* **Why three independent safeguards instead of one boolean.** `LaserSafetySnapshot.machine_state()` checks `key_enabled`, `enclosure_closed` and `interlock_healthy` as three separate conditions — real laser safety needs every physical safeguard to be independently true; collapsing them into one flag would hide which one actually failed.
 * **Why the bridge documents that it can never arm or fire a laser.** `LaserCellBridge`'s own docstring states it "coordinates only external auxiliaries; it cannot arm or fire a laser" — those conditions are observations of the controller's own certified interlocks, never a substitute for them.
 * **Why the controller-state mapping is deliberately conservative.** Only the literal string `IDLE` maps to `MachineState.IDLE`. Every unrecognized value falls back to `OFFLINE`, never to something that would permit auxiliary work.
 * **Why the bridge builds a new `BridgeJob` and delegates to the shared `evaluate_job()` instead of writing its own accept/reject logic.** All five External Automation Bridges (CNC, LASER, OPENPNP, PRINTER3D, ROS2) reuse the exact same `bridge_contract` from `HYDRA-UMC-SDK`, so "what counts as safe to start a job" cannot silently diverge between them.
 * **Why the choice of real laser software/controller is intentionally deferred.** Committing to a specific vendor interface before the machine and its documented interlock reporting are available would mean claiming a real safety guarantee this local core cannot verify.
-* **How this fits the rest of the ecosystem.** BRIDGE-LASER sits between the laser controller and `HYDRA-UMC-SDK` → `HYDRA-UMC-SERVER` → independent safety — it coordinates auxiliary robot work around the laser cell, it does not replace or override certified laser safety.
+* **How this fits the rest of the ecosystem.** BRIDGE-LASER sits between the laser controller and `HYDRA-UMC-SDK` → `HYDRA-UMC-MQTT-BROKER` → independent safety — it coordinates auxiliary robot work around the laser cell, it does not replace or override certified laser safety.
 
 The observation helper is an evidence normalizer, not a laser-controller adapter: it does not open a network or serial link, alter settings, upload jobs, arm or fire. [Laser Controller Evidence Boundary](docs/CONTROLLER_EVIDENCE_BOUNDARY.md) defines the validation required before a real integration.
 
@@ -89,7 +89,8 @@ HYDRA-UMC-BRIDGE-LASER/
 │   ├── test_mqtt_environment.py # The MQTT credentials and TLS of the service environment reach the client
 │   ├── test_idempotency.py      # A repeated idempotency key is answered once
 │   ├── gpio_mqtt_emulator.py    # Protocol-faithful GPIO/MQTT emulator (realistic test double)
-│   └── test_gpio_mqtt_emulator.py # Bridge behaviour against the GPIO/MQTT emulator
+│   ├── test_gpio_mqtt_emulator.py # Bridge behaviour against the GPIO/MQTT emulator
+│   └── test_hardening.py        # Hostile payloads, fake gpiod single request, watcher failure, honest answers
 ├── tools/
 │   ├── build_test.py            # Non-mutating compile + test runner (build-test.bat/.sh)
 │   ├── bump_version.py          # Synchronizes pyproject.toml, manifest and CHANGELOG.md
@@ -97,7 +98,8 @@ HYDRA-UMC-BRIDGE-LASER/
 │   └── inspect_controller_evidence.py # Normalizes a saved local evidence JSON file (no link opened)
 ├── docs/
 │   ├── BRIDGE_GUIDE.md                    # Scope, compatible platforms, scripts, hardware acceptance gate
-│   └── CONTROLLER_EVIDENCE_BOUNDARY.md    # What counts as real safety evidence vs. what this bridge refuses to infer
+│   ├── CONTROLLER_EVIDENCE_BOUNDARY.md    # What counts as real safety evidence vs. what this bridge refuses to infer
+│   └── WIRING_GUIDE.md                    # Wiring the three safeguards: polarity, normally-closed contacts, bias, debounce
 ├── images/
 │   └── HYDRA_UMC_BANNER.svg     # README banner
 ├── build-test.bat / build-test.sh  # Validate only, never modifies the repository
@@ -126,13 +128,13 @@ bash build-test.sh
 bash build.sh
 ```
 
-`build-test` compiles every module under `src/` with `py_compile` and runs the full `unittest` suite discovered under `tests/` (`test_cell.py`, `test_observation.py`, `test_gpio_safety.py`, `test_mqtt_transport.py`, `test_gpio_mqtt_emulator.py` - 72 tests), proving safe-idle admission, enclosure rejection and abort forwarding among everything else covered — it never modifies the repository. `build` runs that same validation first and, only on success, calls `tools/bump_version.py` to synchronize the version across `pyproject.toml`, `hydra-umc.project.json` and `CHANGELOG.md`. There is no live laser `run` command yet — that requires a validated, safe controller integration.
+`build-test` compiles every module under `src/` and `tools/` with `py_compile` and runs the full `unittest` suite discovered under `tests/` (`test_cell.py`, `test_observation.py`, `test_gpio_safety.py`, `test_mqtt_transport.py`, `test_gpio_mqtt_emulator.py`, `test_hardening.py`, `test_idempotency.py`, `test_mqtt_environment.py` - 96 tests), proving safe-idle admission, enclosure rejection and abort forwarding among everything else covered — it never modifies the repository. `build` runs that same validation first and, only on success, calls `tools/bump_version.py` to synchronize the version across `pyproject.toml`, `hydra-umc.project.json` and `CHANGELOG.md`. There is no live laser `run` command yet — that requires a validated, safe controller integration.
 
 ---
 
 ## ✅ Current Status & Next Steps
 
-**Real today:** version `0.1.4`, a locally tested fail-safe planning core (`LaserSafetySnapshot` + `LaserCellBridge`) backed by `HYDRA-UMC-SDK`'s shared job gate, strict read-only safety-evidence normalization distinguishing a real paused job (`HOLDING`) from an actively firing one (`RUNNING`), a real controller-neutral GPIO reader (`GpioSafetyProbe`) for the 3 independent key/enclosure/interlock safeguards, a real MQTT status/evidence transport (`mqtt_transport.py`), a sixty-eight-test deterministic `unittest` suite, and non-mutating build-test scripts wired into CI with an SDK checkout.
+**Real today:** version `0.1.5`, a locally tested fail-safe planning core (`LaserSafetySnapshot` + `LaserCellBridge`) backed by `HYDRA-UMC-SDK`'s shared job gate, strict read-only safety-evidence normalization distinguishing a real paused job (`HOLDING`) from an actively firing one (`RUNNING`), a real controller-neutral GPIO reader (`GpioSafetyProbe`) for the 3 independent key/enclosure/interlock safeguards, a real MQTT status/evidence transport (`mqtt_transport.py`), a 96-test deterministic `unittest` suite, and non-mutating build-test scripts wired into CI with an SDK checkout.
 
 **Integration boundary:** the laser controller's own certified enclosure, key-switch and interlock authority is never bypassed; this bridge only ever gates *auxiliary* robot work around it, and only by reading its reported state.
 
@@ -145,7 +147,7 @@ bash build.sh
 This project is part of the HYDRA-UMC robotics ecosystem by the same author (JuanenRac / Electro Hobby 3D). Worth knowing about, since a request might actually be about one of these rather than this repository.
 
 **Parent Project**
-- **[HYDRA-UMC-SERVER](https://github.com/JuanenRac/HYDRA-UMC-SERVER)** — the real headless backend (REST/WebSocket) every control client actually talks to; the authenticated ecosystem boundary this bridge reports to once each command has cleared this bridge's own local safety gate.
+- **[HYDRA-UMC-SERVER](https://github.com/JuanenRac/HYDRA-UMC-SERVER)** — the real headless backend (REST/WebSocket) every control client actually talks to; this bridge does not call it - it answers over MQTT, through HYDRA-UMC-MQTT-BROKER, to whoever commands the cell.
 
 **Sibling Projects** — also talk to HYDRA-UMC-SERVER's own API, each their own client
 - **[HYDRA-UMC-STUDIO](https://github.com/JuanenRac/HYDRA-UMC-STUDIO)** — web control dashboard with real-time multi-robot 3D visualization.
@@ -248,4 +250,4 @@ This project is part of the HYDRA-UMC robotics ecosystem by the same author (Jua
 📺 [youtube.com/@electrohobby3d](https://youtube.com/@electrohobby3d)
 
 ## 📜 LICENSE
-GPL-3.0 - See LICENSE for details.
+GPL-3.0-or-later - See LICENSE for details.

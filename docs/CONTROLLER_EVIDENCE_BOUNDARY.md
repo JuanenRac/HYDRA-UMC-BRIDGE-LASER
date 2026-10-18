@@ -16,4 +16,4 @@ An idle result requires a literal `IDLE` controller state and three genuine Bool
 
 Any future controller adapter needs an identified documented interface, independent certified safety authority, authenticated access where applicable and bench/HIL validation before it is connected to a laser cell.
 
-For an offline review, run `py tools/inspect_controller_evidence.py evidence.json`. It reads a saved JSON mapping only and emits the canonical SDK machine state; it never opens a serial or network link and has no arm/fire path.
+For an offline review, run `python3 tools/inspect_controller_evidence.py evidence.json` (`py` instead of `python3` on Windows). It reads a saved JSON mapping only and emits the canonical SDK machine state; it never opens a serial or network link and has no arm/fire path.

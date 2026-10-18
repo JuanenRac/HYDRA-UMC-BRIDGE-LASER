@@ -21,33 +21,47 @@ happens, and it is a pure(ish) dispatcher over 3 real `GpioLineReader`s
 and a `controller_state` callable - fully testable with the exact same
 kind of fake `test_gpio_safety.py` already uses, no real MQTT broker or
 GPIO chip required. `run_forever()` is the thin real-I/O glue that lazily
-imports `paho-mqtt` and is not itself unit-tested beyond import-time
-behavior, same convention as `open_gpio_safety_lines()` elsewhere in this
-bridge.
+imports `paho-mqtt`.
 
 Topic scheme (see HYDRA-UMC-MQTT-BROKER's own `hydra/bridges/<name>/...`
 convention, `docs/BRIDGE_TOPICS.md`):
-  hydra/bridges/laser/state           <- published, RETAINED (LaserSafetySnapshot + derived machine_state)
+  hydra/bridges/laser/state           <- published, RETAINED (LaserSafetySnapshot + derived machine_state + observed_at, epoch milliseconds)
+  hydra/bridges/laser/availability    <- "online" / "offline", RETAINED (the broker publishes "offline" if this bridge dies)
   hydra/bridges/laser/cmd/status      -> (empty) re-read the 3 GPIO safeguards + publish state
-  hydra/bridges/laser/cmd/job         -> BridgeJob JSON (job_to_dict shape) - the shared bridge-contract gate
+  hydra/bridges/laser/cmd/job         -> BridgeJob JSON (job_to_dict shape) - the shared bridge-contract gate (plan only: it never acts)
   hydra/bridges/laser/cmd/job/result  <- published, GateDecision JSON
+
+A payload larger than 16 KiB, a payload that cannot be read and any unexpected failure while handling a message are
+answered with a refusal on the result topic; they never end the loop.
 """
 
 from __future__ import annotations
 
 import json
+import logging
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from typing import Callable
 
-from hydra_umc_sdk.bridge_contract import BridgeError, CellState, decision_to_dict, job_from_dict
+from hydra_umc_sdk.bridge_contract import BridgeError, CellState, JobPhase, decision_to_dict, job_from_dict
 from hydra_umc_sdk.job_intake import IdempotencyStore
 from hydra_umc_sdk.mqtt_connection import apply_connection_settings, settings_from_env
 
 from .cell import LaserCellBridge, LaserSafetySnapshot
-from .gpio_safety import EdgeEventSource, GpioSafetyLines, GpioSafetyProbe, open_gpio_edge_watcher, watch_for_interlock_edges
+from .gpio_safety import EdgeEventSource, GpioSafetyLines, GpioSafetyProbe, watch_for_interlock_edges
 
 TOPIC_PREFIX = "hydra/bridges/laser/"
+AVAILABILITY_TOPIC = f"{TOPIC_PREFIX}availability"
+
+# A command is a few hundred bytes; anything larger is not a command, and parsing it is how a hostile payload costs the bridge its memory or its stack.
+MAX_PAYLOAD_BYTES = 16 * 1024
+
+# This bridge has no stop command of its own: the laser is stopped by its own physical E-STOP and enclosure interlocks.
+STOP_VERBS: frozenset[str] = frozenset()
+
+_LOG = logging.getLogger(__name__)
 
 
 class MqttPublish:
@@ -70,10 +84,22 @@ class MqttPublish:
         return f"MqttPublish(topic={self.topic!r}, payload={self.payload!r}, retain={self.retain!r})"
 
 
-def _snapshot_payload(snapshot: LaserSafetySnapshot) -> str:
+def _snapshot_payload(snapshot: LaserSafetySnapshot, observed_at_ms: int, reason: str | None = None) -> str:
     payload = asdict(snapshot)
     payload["machine_state"] = snapshot.machine_state().value
+    # when this reading was taken: a retained state without it cannot be told from one that is hours old
+    payload["observed_at"] = observed_at_ms
+    if reason is not None:
+        payload["reason"] = reason
     return json.dumps(payload)
+
+
+def _refusal(suffix: str, reason: str) -> list[MqttPublish]:
+    """The answer to a command that could not be handled; nothing for a topic that is not a `cmd/<verb>`."""
+    parts = suffix.split("/")
+    if len(parts) != 2 or parts[0] != "cmd":
+        return []
+    return [MqttPublish(f"{TOPIC_PREFIX}{suffix}/result", json.dumps({"allowed": False, "executed": False, "reason": reason}))]
 
 
 class LaserMqttBridge:
@@ -86,12 +112,23 @@ class LaserMqttBridge:
     beyond the shared job contract - see this module's own docstring.
     """
 
-    def __init__(self, lines: GpioSafetyLines, controller_state: Callable[[], str], cell_state: Callable[[], CellState], idempotency: IdempotencyStore | None = None) -> None:
+    def __init__(
+        self,
+        lines: GpioSafetyLines,
+        controller_state: Callable[[], str],
+        cell_state: Callable[[], CellState],
+        idempotency: IdempotencyStore | None = None,
+        *,
+        clock: Callable[[], float] = time.time,
+    ) -> None:
         # docs/BRIDGE_CONTRACT.md: the idempotency key of a job is handled once; a repeat gets the answer that was given, nothing is evaluated again
         self._idempotency = idempotency
         self._lines = lines
         self._controller_state = controller_state
         self._cell_state = cell_state
+        self._clock = clock
+        # the MQTT thread and the edge watcher both read the lines and the controller state; libgpiod objects are not thread-safe
+        self._read_lock = threading.Lock()
         self._probe = GpioSafetyProbe()
         self._gate = LaserCellBridge()
 
@@ -110,7 +147,17 @@ class LaserMqttBridge:
         could be tempted to read from again.
         """
 
-        return self._probe.read_snapshot(self._controller_state(), self._lines)
+        with self._read_lock:
+            return self._probe.read_snapshot(self._controller_state(), self._lines)
+
+    def state_publish(self) -> MqttPublish:
+        """The retained `state` message for a reading taken right now."""
+        return MqttPublish(f"{TOPIC_PREFIX}state", _snapshot_payload(self.refresh_status(), int(self._clock() * 1000)), retain=True)
+
+    def failed_state_publish(self, reason: str) -> MqttPublish:
+        """The retained `state` message for a bridge that can no longer see its safeguards: every one of them unsatisfied."""
+        failed = LaserSafetySnapshot("", False, False, False)
+        return MqttPublish(f"{TOPIC_PREFIX}state", _snapshot_payload(failed, int(self._clock() * 1000), reason), retain=True)
 
     def handle_message(self, topic: str, payload: bytes, *, retained: bool = False) -> list[MqttPublish]:
         """Route one real inbound MQTT message. An unrecognised `cmd/`
@@ -128,6 +175,9 @@ class LaserMqttBridge:
         at all, every single time this bridge reconnects. A retained
         delivery is always ignored here, before it ever reaches a real
         command.
+
+        This never raises: an oversized payload and any failure while handling
+        the message come back as a refusal on the verb's result topic.
         """
 
         if retained:
@@ -135,26 +185,44 @@ class LaserMqttBridge:
         if not topic.startswith(TOPIC_PREFIX):
             return []
         suffix = topic[len(TOPIC_PREFIX) :]
-
-        if suffix == "cmd/status":
-            return [MqttPublish(f"{TOPIC_PREFIX}state", _snapshot_payload(self.refresh_status()), retain=True)]
-        if suffix == "cmd/job":
-            return [self._handle_job(payload)]
+        if len(payload) > MAX_PAYLOAD_BYTES:
+            return _refusal(suffix, f"payload is larger than {MAX_PAYLOAD_BYTES} bytes")
+        try:
+            if suffix == "cmd/status":
+                return [self.state_publish()]
+            if suffix == "cmd/job":
+                return [self._handle_job(payload)]
+        except Exception as error:  # noqa: BLE001 - nothing a message does may end the loop
+            _LOG.exception("could not handle %s", topic)
+            return _refusal(suffix, f"the command could not be handled: {type(error).__name__}")
         return []
 
     def _handle_job(self, payload: bytes) -> MqttPublish:
+        result_topic = f"{TOPIC_PREFIX}cmd/job/result"
         try:
             job = job_from_dict(json.loads(payload))
         except (json.JSONDecodeError, BridgeError, UnicodeDecodeError) as error:
             decision = {"allowed": False, "reason": f"malformed job payload: {error}"}
-            return MqttPublish(f"{TOPIC_PREFIX}cmd/job/result", json.dumps(decision))
-        repeat = self._repeat(job.idempotency_key, f"{TOPIC_PREFIX}cmd/job/result", {"allowed": False, "reason": "this idempotency_key was already handled"})
+            return MqttPublish(result_topic, json.dumps(decision))
+        key = f"job:{job.idempotency_key}"
+        repeat = self._repeat(key, result_topic, {"allowed": False, "reason": "this idempotency_key was already handled"})
         if repeat is not None:
             return repeat
-        # - always re-read live, right before the gate decides.
-        snapshot = self.refresh_status()
-        decision = self._gate.plan(job, self._cell_state(), snapshot)
-        return self._answer(job.idempotency_key, MqttPublish(f"{TOPIC_PREFIX}cmd/job/result", json.dumps(decision_to_dict(decision))))
+        try:
+            # - always re-read live, right before the gate decides.
+            snapshot = self.refresh_status()
+            decision = self._gate.plan(job, self._cell_state(), snapshot)
+            result = decision_to_dict(decision)
+            result["mode"] = "gate-only"
+            if job.phase is JobPhase.ABORT:
+                # the shared gate always lets an abort through, but this bridge has nothing to abort with: the laser is stopped by its own E-STOP and interlocks
+                result["forwarded"] = False
+                result["reason"] = "abort acknowledged by the gate only - nothing was stopped; this bridge cannot stop a laser, use its physical E-STOP"
+            return self._answer(key, MqttPublish(result_topic, json.dumps(result)))
+        except Exception as error:  # noqa: BLE001
+            _LOG.exception("cmd/job failed")
+            failure = {"allowed": False, "reason": f"the job could not be handled: {type(error).__name__}"}
+            return self._answer(key, MqttPublish(result_topic, json.dumps(failure)))
 
     def _repeat(self, key: str, result_topic: str, fallback: dict) -> MqttPublish | None:
         """None when this job key is new (it is claimed now); otherwise the answer given the first time, which is sent again instead of running the job a second time."""
@@ -167,6 +235,35 @@ class LaserMqttBridge:
         if self._idempotency is not None:
             self._idempotency.remember(key, publish.payload)
         return publish
+
+
+class MessageDispatcher:
+    """Takes the messages off the network thread, one at a time and in order; `stop_verbs` (none for this bridge) would get a lane of their own."""
+
+    def __init__(self, bridge: LaserMqttBridge, stop_verbs: frozenset[str] = STOP_VERBS) -> None:
+        self._bridge = bridge
+        self._stop_verbs = frozenset(stop_verbs)
+        self._lane = ThreadPoolExecutor(max_workers=1, thread_name_prefix="hydra-bridge")
+        self._stop_lane = ThreadPoolExecutor(max_workers=1, thread_name_prefix="hydra-bridge-stop")
+
+    def on_message(self, client: object, userdata: object, message: object) -> None:
+        if bool(getattr(message, "retain", False)):
+            return  # a replay by the broker, never a request
+        topic = message.topic  # type: ignore[attr-defined]
+        suffix = topic[len(TOPIC_PREFIX) :] if topic.startswith(TOPIC_PREFIX) else ""
+        lane = self._stop_lane if suffix in self._stop_verbs else self._lane
+        lane.submit(self._handle, client, topic, bytes(message.payload))  # type: ignore[attr-defined]
+
+    def _handle(self, client: object, topic: str, payload: bytes) -> None:
+        try:
+            for publish in self._bridge.handle_message(topic, payload, retained=False):
+                client.publish(publish.topic, publish.payload, retain=publish.retain)  # type: ignore[attr-defined]
+        except Exception:  # noqa: BLE001
+            _LOG.exception("could not answer %s", topic)
+
+    def close(self, wait: bool = True) -> None:
+        self._lane.shutdown(wait=wait)
+        self._stop_lane.shutdown(wait=wait)
 
 
 def connect_with_retry(
@@ -211,20 +308,25 @@ def build_edge_watch_on_change(bridge: LaserMqttBridge, publish: Callable[[MqttP
     unit-testable without a real GPIO chip, edge event or MQTT client."""
 
     def on_change() -> None:
-        publish(MqttPublish(f"{TOPIC_PREFIX}state", _snapshot_payload(bridge.refresh_status()), retain=True))
+        publish(bridge.state_publish())
 
     return on_change
+
+
+def build_edge_watch_on_failure(bridge: LaserMqttBridge, publish: Callable[[MqttPublish], None]) -> Callable[[Exception], None]:
+    """Build the callback `watch_for_interlock_edges()` calls when watching fails: the retained `state` becomes a fail-closed one (every safeguard unsatisfied, SAFE_STOP) saying why, so that nobody keeps reading an old "healthy"."""
+
+    def on_failure(error: Exception) -> None:
+        publish(bridge.failed_state_publish(f"edge watcher failed: {type(error).__name__}"))
+
+    return on_failure
 
 
 def start_edge_watch_thread(
     bridge: LaserMqttBridge,
     publish: Callable[[MqttPublish], None],
-    chip_path: str,
-    key_line_offset: int,
-    enclosure_line_offset: int,
-    interlock_line_offset: int,
+    watcher: EdgeEventSource,
     *,
-    open_watcher: Callable[[str, int, int, int], EdgeEventSource] = open_gpio_edge_watcher,
     watch: Callable[..., None] = watch_for_interlock_edges,
 ) -> "threading.Thread":
     """Start the real background edge-watch loop as a daemon thread - the
@@ -233,20 +335,21 @@ def start_edge_watch_thread(
     enclosure/key/interlock transition now publishes an updated `state`
     the instant the kernel reports it, independent of any inbound command.
 
+    `watcher` is the edge-event half of `open_gpio_safety()`: the SAME line
+    request the bridge reads its levels from (a second request for the same
+    lines would be refused as busy).
+
     A daemon thread so it never blocks process shutdown; `watch_for_interlock_edges()`
     itself has no natural exit condition here (this loop is meant to run
     for the whole process lifetime, matching `client.loop_forever()`
-    below), so this is deliberately fire-and-forget rather than joined.
+    below), so this is deliberately fire-and-forget rather than joined. A
+    failure inside the loop is published as a fail-closed state and retried.
     """
 
-    import threading
-
-    watcher = open_watcher(chip_path, key_line_offset, enclosure_line_offset, interlock_line_offset)
-    on_change = build_edge_watch_on_change(bridge, publish)
     thread = threading.Thread(
         target=watch,
-        args=(watcher, on_change),
-        kwargs={"should_stop": lambda: False},
+        args=(watcher, build_edge_watch_on_change(bridge, publish)),
+        kwargs={"should_stop": lambda: False, "on_failure": build_edge_watch_on_failure(bridge, publish)},
         name="hydra-umc-bridge-laser-edge-watch",
         daemon=True,
     )
@@ -264,10 +367,7 @@ def run_forever(
     connect_retry_delay_seconds: float = 2.0,
     username: str | None = None,
     password: str | None = None,
-    gpio_chip_path: str | None = None,
-    key_line_offset: int | None = None,
-    enclosure_line_offset: int | None = None,
-    interlock_line_offset: int | None = None,
+    edge_watcher: EdgeEventSource | None = None,
 ) -> None:
     """Connect to a real HYDRA-UMC-MQTT-BROKER and dispatch forever.
 
@@ -282,15 +382,15 @@ def run_forever(
     alone almost certainly meant to set both, so that combination is
     rejected rather than silently connecting unauthenticated.
 
-    `gpio_chip_path`/`*_line_offset` are optional and off by default - a
-    deployment that supplies all 4 gets the real libgpiod v2 edge-event
-    watcher (see `start_edge_watch_thread()`) started as a background
-    thread publishing state the instant a real interlock line transitions,
-    on top of (never instead of) the existing `cmd/status`/`cmd/job`
-    on-demand reads. Omitting them (the previous behavior, still the
-    default) leaves this bridge exactly as before - no new required
-    dependency or hardware for a deployment that doesn't have the GPIO
-    lines wired up yet.
+    `edge_watcher` is optional and off by default: the `watcher` of
+    `open_gpio_safety()` (the same line request the bridge reads from) starts
+    the real libgpiod v2 edge-event watcher (see `start_edge_watch_thread()`) as a
+    background thread publishing state the instant a real interlock line
+    transitions, on top of (never instead of) the existing `cmd/status`/`cmd/job`
+    on-demand reads. Omitting it leaves this bridge on-demand only.
+
+    The bridge announces itself on `availability`: "online" once connected, and
+    the broker publishes "offline" (the Last Will) if the connection is lost.
     """
 
     if password is not None and username is None:
@@ -305,32 +405,33 @@ def run_forever(
         ) from error
 
     def on_connect(client: object, userdata: object, flags: object, reason_code: object, properties: object = None) -> None:
+        if getattr(reason_code, "is_failure", False):
+            return  # the broker refused us: paho reports it and retries on its own
         client.subscribe(f"{TOPIC_PREFIX}cmd/#")  # type: ignore[attr-defined]
+        client.publish(AVAILABILITY_TOPIC, "online", qos=1, retain=True)  # type: ignore[attr-defined]
 
-    def on_message(client: object, userdata: object, message: object) -> None:
-        for publish in bridge.handle_message(message.topic, message.payload, retained=message.retain):  # type: ignore[attr-defined]
-            client.publish(publish.topic, publish.payload, retain=publish.retain)  # type: ignore[attr-defined]
-
-    client = mqtt.Client(client_id=client_id)
+    dispatcher = MessageDispatcher(bridge)
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=client_id)
     # the credentials and TLS of this service's environment (HYDRA_MQTT_*), unless the caller gave a user name explicitly
     apply_connection_settings(client, settings_from_env(), username=username, password=password)
+    client.reconnect_delay_set(min_delay=1, max_delay=30)
+    client.will_set(AVAILABILITY_TOPIC, "offline", qos=1, retain=True)
     client.on_connect = on_connect
-    client.on_message = on_message
-    connect_with_retry(
-        lambda: client.connect(host, port),
-        max_attempts=max_connect_attempts,
-        retry_delay_seconds=connect_retry_delay_seconds,
-    )
-
-    gpio_offsets = (key_line_offset, enclosure_line_offset, interlock_line_offset)
-    if gpio_chip_path is not None and all(offset is not None for offset in gpio_offsets):
-        start_edge_watch_thread(
-            bridge,
-            lambda publish: client.publish(publish.topic, publish.payload, retain=publish.retain),  # type: ignore[attr-defined]
-            gpio_chip_path,
-            key_line_offset,  # type: ignore[arg-type]
-            enclosure_line_offset,  # type: ignore[arg-type]
-            interlock_line_offset,  # type: ignore[arg-type]
+    client.on_message = dispatcher.on_message
+    try:
+        connect_with_retry(
+            lambda: client.connect(host, port),
+            max_attempts=max_connect_attempts,
+            retry_delay_seconds=connect_retry_delay_seconds,
         )
 
-    client.loop_forever()
+        if edge_watcher is not None:
+            start_edge_watch_thread(
+                bridge,
+                lambda publish: client.publish(publish.topic, publish.payload, retain=publish.retain),  # type: ignore[attr-defined]
+                edge_watcher,
+            )
+
+        client.loop_forever()
+    finally:
+        dispatcher.close(wait=False)

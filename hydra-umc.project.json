@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "ecosystem": "HYDRA-UMC",
   "name": "HYDRA-UMC-BRIDGE-LASER",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "role": "service",
   "stack": "python",
   "technologies": [
@@ -18,7 +18,7 @@
   "family": "External Automation Bridges",
   "parent": "HYDRA-UMC-SERVER",
   "build": "python tools/build_test.py",
-  "notes": "High-level laser cell coordinator. It normalizes read-only safety evidence and can now read the 3 independent key/enclosure/interlock safeguards from real GPIO lines, controller-neutral by design; it cannot arm or fire a laser, and preserves the controller's own authority. The 3 safeguards are always re-read live immediately before a new job is gated - no cached snapshot is ever reused for a real safety decision.",
+  "notes": "High-level laser cell coordinator. It normalizes read-only safety evidence and can now read the 3 independent key/enclosure/interlock safeguards from real GPIO lines (one shared line request, wiring declared per line), controller-neutral by design; it cannot arm or fire a laser, and preserves the controller's own authority. The 3 safeguards are always re-read live immediately before a new job is gated - no cached snapshot is ever reused for a real safety decision.",
   "native_version": {
     "file": "pyproject.toml",
     "pattern": "^version\\s*=\\s*\"(\\d+)\\.(\\d+)\\.(\\d+)\""
