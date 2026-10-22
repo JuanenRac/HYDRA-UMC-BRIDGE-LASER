@@ -27,7 +27,7 @@ No live laser application/controller command path is integrated yet - the bridge
 | Script | Purpose | Changes version/CHANGELOG? |
 |---|---|---|
 | `build-test.bat` / `build-test.sh` | Compile and run local safety tests | No |
-| `build.bat` / `build.sh` | Validate, then increment version and CHANGELOG | Yes, after success |
+| `build.bat` / `build.sh` | Validate, then build (never changes the version or the CHANGELOG) | No |
 | `tools/inspect_controller_evidence.py` | Normalize a saved JSON capture only | No |
 
 ## Adding a new script
