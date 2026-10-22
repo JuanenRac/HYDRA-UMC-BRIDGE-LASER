@@ -57,4 +57,4 @@ class LaserCellBridge:
 
     def plan(self, job: BridgeJob, cell_state: CellState, laser: LaserSafetySnapshot) -> GateDecision:
         observed = BridgeJob(job.job_id, job.idempotency_key, job.source, job.phase, laser.machine_state(), job.parameters)
-        return evaluate_job(observed, cell_state)
+        return evaluate_job(observed, cell_state, laser.machine_state())
