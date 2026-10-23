@@ -52,6 +52,8 @@ GPL-3.0-or-later - see LICENSE
 * ✅ **読み取り専用の安全性実証:** `observation.py` はキー、エンクロージャー、インターロックの本物のブール信号のみを受け入れる。欠落・数値型・テキスト型の値は安全側に倒れて失敗する。レーザーをアームしたり発射したりすることはできない。*(実装済み、`tests/test_observation.py` でテスト済み)*
 * ✅ **コントローラーに依存しない GPIO インターロック読み取り(模擬チップに対してのみテスト済み):** `gpio_safety.py` の `GpioSafetyProbe` は、保存されたマッピングではなくGPIO ライン（libgpiod v2。テストは模擬チップを使用）から同じ3つの独立した保護機構を読み取る —— キースイッチ／ドアセンサー／インターロックリレーはブランドを問わずレーザーカッターに共通するため、意図的にコントローラーに依存しない設計になっている。GPIO の読み取りに失敗した場合、3つの保護機構すべてが安全側に倒れて失敗する。*(実装済み、`tests/test_gpio_safety.py` でテスト済み)*
 * ✅ **エッジ駆動のインターロック監視(模擬チップに対してのみテスト済み):** `open_gpio_safety()` はキー・筐体・インターロックの各ラインを一度だけ(`INPUT`、`Edge.BOTH`)開き、その単一のリクエストでレベル読み取りとエッジ監視の両方を処理する —— 同じラインへの2回目のリクエストはカーネルに拒否される。`watch_for_interlock_edges()` は、無関係なMQTTメッセージが要求したときだけレベルを再読み取りする代わりに、カーネル自身のエッジイベント通知(libgpiod v2)で待機し、`run_forever(edge_watcher=...)` はラインが遷移した瞬間に更新済みの保持された `state` を公開するデーモンスレッドを起動する。監視が失敗した場合は、フェイルクローズドな `state`(`SAFE_STOP`、理由付き)を公開して再試行を続ける。各ラインの配線は宣言する(`GpioLineSettings`: `active_low`、`bias` —— 既定では断線が非安全として読まれる —— と `debounce_ms`)。`docs/WIRING_GUIDE.md` を参照。実際のGPIOチップではまだ検証されていない。*(実装済み、`tests/test_gpio_safety.py` と、模擬 `gpiod` を用いた `tests/test_hardening.py` でテスト済み)*
+* ✅ **安全イベントストリーム(模擬ラインと模擬エッジ監視でテスト済み):** `events.py` はキー・筐体・インターロックの変化ごとにタイムスタンプ付きの記録を `hydra/bridges/laser/event/safety`(データレイクが監査とOEEのために保持するログ)へ出し、セルが安全から非安全に変わったときに一度だけ、開いた保護を示す `hydra/bridges/laser/event/interlock_open` イベントを出す。これによりオーケストレーターはセルのアームを直ちに停止できる。どちらもQoS 1で保持されず、`at_ms` と増加する `sequence` を持つ。最初の読み取りは基準にすぎない。エッジ監視が失敗した場合も、その喪失はインターロック開として報告される。このブリッジは報告するだけで、レーザーを停止することはできない。*(実装済み、`tests/test_events.py` でテスト済み)*
+* ✅ **任意の補助保護(模擬入力でテスト済み):** `auxiliary.py` により、セルは追加条件 —— 排煙の稼働、アシストエアのオン、CO2チューブ温度が上限以下 —— を `AuxiliaryCheck` として宣言し、`LaserMqttBridge(auxiliary=...)` に渡せる。いずれかが満たされない間、ABORT 以外のジョブは失敗したチェック名を示して拒否される。読み取れない値、数値でない値、有限でない値は未達として扱われ、`state` には `auxiliary` マップが含まれる。宣言がなければ何も変わらない。読み取り専用で、何も切り替えない。*(実装済み、`tests/test_auxiliary.py` でテスト済み)*
 * ✅ **非破壊的なビルド/テスト:** `build-test.bat`/`.sh` はソースをコンパイルし、バージョンファイルやCHANGELOGに一切触れずに安全ゲートのテストスイートを実行する。*(実装済み、下記「ビルドと実行」を参照)*
 * 🔜 **具体的なレーザーコントローラー/ソフトウェア統合** —— 実機とその文書化されたインターフェースが揃うまで意図的に保留されている。*(計画中)*
 * ✅ **重複した冪等キー:** `LaserMqttBridge` は `IdempotencyStore` を受け取り、重複したジョブキーには再評価せず初回の応答を返す。*（実装済み、`tests/test_idempotency.py` でテスト済み）*
@@ -91,6 +93,8 @@ HYDRA-UMC-BRIDGE-LASER/
 │   └── hydra_umc_bridge_laser/
 │       ├── __init__.py
 │       ├── cell.py              # LaserSafetySnapshot + LaserCellBridge 安全ゲート
+│       ├── auxiliary.py       # extraction / assist air / tube temperature checks
+│       ├── events.py          # interlock_open + safeguard-change events
 │       ├── observation.py       # 安全性証拠の読み取り専用正規化
 │       ├── gpio_safety.py       # GPIO経由で3つの独立した実際の安全信号を読み取る - レーザーコマンドではない
 │       └── mqtt_transport.py    # 実MQTTブローカー転送 - ステータス/証拠のみ、このbridgeはレーザーを起動・発射できない

@@ -4,6 +4,8 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+- **Optional auxiliary safeguards.** A cell can declare fume extraction, assist air and CO2 tube temperature as checks (`AuxiliaryCheck`, `LaserMqttBridge(auxiliary=...)`); a job other than ABORT is refused, naming the failed check, while one is not satisfied, and an unreadable or non-finite reading counts as not satisfied. `state` carries an `auxiliary` map. Read-only. Covered by `tests/test_auxiliary.py`.
+- **Safety event stream.** Every change of the key, enclosure or interlock becomes a timestamped record on `hydra/bridges/laser/event/safety` (for audit and OEE in a data lake), and the moment the cell goes from safe to unsafe an `hydra/bridges/laser/event/interlock_open` event names the safeguards that opened, so the orchestrator can stop the arms of the cell at once. Both are QoS 1 and never retained, carry `at_ms` and a growing `sequence`, and a failing edge watcher is reported as an open interlock too. The bridge only reports; it cannot stop a laser. Covered by `tests/test_events.py`.
 - Building no longer changes the version; raising it is the explicit `bump` command (`python tools/hydra_project_tool.py bump`). The build scripts only report the version they built, and CI fails if a build script runs a bump.
 - **The MQTT transport comes from the SDK.** Connecting with retries, the publish record and the message dispatcher are the shared `hydra_umc_sdk.bridge_transport` of SDK 0.3.6 instead of a copy of their own; what is specific to this bridge (its topics and what it does with a message) stays here, and its tests are unchanged.
 

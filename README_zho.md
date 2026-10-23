@@ -52,6 +52,8 @@ GPL-3.0-or-later - see LICENSE
 * ✅ **只读安全证据:** `observation.py` 只接受钥匙、防护罩和联锁的真实布尔信号;缺失、数值型或文本型的值都会安全失效关闭。它既不能使激光武装,也不能触发激光。*(已实现,在 `tests/test_observation.py` 中测试)*
 * ✅ **与控制器无关的 GPIO 联锁读取(仅针对模拟芯片测试):** `gpio_safety.py` 的 `GpioSafetyProbe` 从 GPIO 线路(libgpiod v2;测试使用模拟芯片)读取这 3 项独立防护,而不是依赖保存的映射——刻意做到与控制器无关,因为钥匙开关/门传感器/联锁继电器在各品牌激光切割机上都是通用的。GPIO 读取失败会使这 3 项防护全部安全失效关闭。*(已实现,在 `tests/test_gpio_safety.py` 中测试)*
 * ✅ **边沿触发的联锁监控(仅针对模拟芯片测试):** `open_gpio_safety()` 只打开一次钥匙、防护罩和联锁这几条线(`INPUT`、`Edge.BOTH`),并用这唯一的请求同时服务电平读取器和边沿监视器——内核会拒绝对同一批线路的第二次请求。`watch_for_interlock_edges()` 阻塞等待内核自身的边沿事件通知(libgpiod v2),而不是仅在无关的 MQTT 消息提出请求时才重新读取电平;`run_forever(edge_watcher=...)` 会启动一个守护线程,在线路发生跳变的瞬间发布更新后的保留 `state`;若监视器失败,它会发布一个故障安全的 `state`(`SAFE_STOP`,附带原因)并继续重试。每条线的接线都需要声明(`GpioLineSettings`:`active_low`、`bias`——默认值会让断线被读为不安全——以及 `debounce_ms`);参见 `docs/WIRING_GUIDE.md`。尚未在真实 GPIO 芯片上验证。*(已实现,在 `tests/test_gpio_safety.py` 以及使用模拟 `gpiod` 的 `tests/test_hardening.py` 中测试)*
+* ✅ **安全事件流(使用模拟线路和模拟边沿监视器测试):** `events.py` 把钥匙、机箱和互锁的每一次变化转成带时间戳的记录,发布到 `hydra/bridges/laser/event/safety`(数据湖用于审计和 OEE 的日志);当单元由安全变为不安全时,仅一次发布 `hydra/bridges/laser/event/interlock_open` 事件,列出已打开的保护,以便编排器立即停止单元的机械臂。两者均为 QoS 1 且从不保留;都带有 `at_ms` 和递增的 `sequence`;第一次读取只作为基准;边沿监视器失败时,该丢失同样作为互锁打开上报。该 bridge 只做上报:它无法停止激光器。*(已实现,在 `tests/test_events.py` 中测试)*
+* ✅ **可选的辅助保护(使用模拟输入测试):** `auxiliary.py` 允许单元声明额外条件 —— 排烟运行中、辅助气开启、CO2 激光管温度不超过某一限值 —— 以 `AuxiliaryCheck` 传给 `LaserMqttBridge(auxiliary=...)`。只要有一项未满足,除 ABORT 之外的作业都会被拒绝,并指明失败的检查;无法读取、非数值或非有限的读数视为未满足;`state` 带有 `auxiliary` 映射。未声明时一切不变。只读:不切换任何东西。*(已实现,在 `tests/test_auxiliary.py` 中测试)*
 * ✅ **非变更式构建/测试:** `build-test.bat`/`.sh` 编译源码并运行安全门控测试套件,不会触碰版本文件或 CHANGELOG。*(已实现,见下方"构建与运行")*
 * 🔜 **具体的激光控制器/软件集成** —— 刻意推迟,直到设备及其文档化接口就绪。*(计划中)*
 * ✅ **重复的幂等键：** `LaserMqttBridge` 接受 `IdempotencyStore`：重复的作业键会得到第一次给出的答复，而不是被重新评估。*（已实现，已在 `tests/test_idempotency.py` 中测试）*
@@ -91,6 +93,8 @@ HYDRA-UMC-BRIDGE-LASER/
 │   └── hydra_umc_bridge_laser/
 │       ├── __init__.py
 │       ├── cell.py              # LaserSafetySnapshot + LaserCellBridge 安全门控
+│       ├── auxiliary.py       # extraction / assist air / tube temperature checks
+│       ├── events.py          # interlock_open + safeguard-change events
 │       ├── observation.py       # 只读的安全证据归一化
 │       ├── gpio_safety.py       # 通过 GPIO 读取 3 个真实的独立安全信号 - 绝非激光命令
 │       └── mqtt_transport.py    # 真实 MQTT broker 传输 - 仅状态/证据,此 bridge 无法启动或触发激光

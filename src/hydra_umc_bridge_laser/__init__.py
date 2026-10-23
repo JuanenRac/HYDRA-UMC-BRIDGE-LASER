@@ -6,6 +6,8 @@
 """Laser-cell coordination that preserves laser controller safety authority."""
 
 from .cell import LaserCellBridge, LaserSafetySnapshot
+from .auxiliary import AuxiliaryCheck, AuxiliarySupervisor
+from .events import EventPublish, SafetyEventTracker
 from .gpio_safety import (
     EdgeEventSource,
     GpioLineReader,
@@ -28,6 +30,10 @@ from .mqtt_transport import (
 from .observation import IndependentObservation, snapshot_from_fresh_mapping, snapshot_from_independently_observed_mapping, snapshot_from_mapping
 
 __all__ = [
+    "AuxiliaryCheck",
+    "AuxiliarySupervisor",
+    "EventPublish",
+    "SafetyEventTracker",
     "LaserCellBridge",
     "LaserSafetySnapshot",
     "snapshot_from_mapping",

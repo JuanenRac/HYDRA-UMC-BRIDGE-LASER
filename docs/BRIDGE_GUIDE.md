@@ -37,3 +37,16 @@ Use the standard header, state the non-arming scope, number console steps and ad
 ## Hardware acceptance gate
 
 Choose the controller and documented interface, validate signals against certified safety hardware, test stale/disconnected behavior, prove independent E-STOP and conduct dry HIL trials without active material. Only then can a separately reviewed controller adapter be considered.
+
+## Safety events
+
+`events.py` publishes what the edge watcher sees, never retained and with QoS 1:
+
+- `hydra/bridges/laser/event/safety`: one JSON record per safeguard that changed (`safeguard`, `from`, `to`, `at_ms`, `sequence`, `machine_state`), the log a data lake keeps for audit and OEE.
+- `hydra/bridges/laser/event/interlock_open`: once, when the cell goes from safe to unsafe (`reasons`, `at_ms`, `sequence`). The orchestrator decides what to stop; this bridge cannot stop a laser.
+
+The first reading only sets the baseline. A watcher that fails is reported as the loss of every safeguard.
+
+## Auxiliary safeguards
+
+`auxiliary.py` reads optional extra conditions (fume extraction, assist air, CO2 tube temperature with a `max_celsius` limit). Pass `AuxiliarySupervisor([AuxiliaryCheck(...)])` as `LaserMqttBridge(auxiliary=...)`: `cmd/job` refuses any job except ABORT while a check is not satisfied and names it, and `state` carries an `auxiliary` map. A reading that fails, is not a real number or is not a bool where a level is expected counts as not satisfied.

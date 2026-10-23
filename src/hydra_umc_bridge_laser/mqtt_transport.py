@@ -30,6 +30,9 @@ convention, `docs/BRIDGE_TOPICS.md`):
   hydra/bridges/laser/cmd/status      -> (empty) re-read the 3 GPIO safeguards + publish state
   hydra/bridges/laser/cmd/job         -> BridgeJob JSON (job_to_dict shape) - the shared bridge-contract gate (plan only: it never acts)
   hydra/bridges/laser/cmd/job/result  <- published, GateDecision JSON
+  (state also carries "auxiliary": {name: bool} when extraction/assist-air/temperature checks are declared)
+  hydra/bridges/laser/event/safety          <- published, QoS 1, not retained: one record per safeguard that changed (see events.py)
+  hydra/bridges/laser/event/interlock_open  <- published, QoS 1, not retained: the cell went from safe to unsafe
 
 A payload larger than 16 KiB, a payload that cannot be read and any unexpected failure while handling a message are
 answered with a refusal on the result topic; they never end the loop.
@@ -50,6 +53,8 @@ from hydra_umc_sdk.bridge_transport import MessageDispatcher as SharedMessageDis
 from hydra_umc_sdk.bridge_transport import MqttPublish, connect_with_retry, open_bridge_client
 
 from .cell import LaserCellBridge, LaserSafetySnapshot
+from .auxiliary import AuxiliarySupervisor
+from .events import SafetyEventTracker
 from .gpio_safety import EdgeEventSource, GpioSafetyLines, GpioSafetyProbe, watch_for_interlock_edges
 
 TOPIC_PREFIX = "hydra/bridges/laser/"
@@ -100,6 +105,7 @@ class LaserMqttBridge:
         idempotency: IdempotencyStore | None = None,
         *,
         clock: Callable[[], float] = time.time,
+        auxiliary: AuxiliarySupervisor | None = None,
     ) -> None:
         # docs/BRIDGE_CONTRACT.md: the idempotency key of a job is handled once; a repeat gets the answer that was given, nothing is evaluated again
         self._idempotency = idempotency
@@ -111,6 +117,9 @@ class LaserMqttBridge:
         self._read_lock = threading.Lock()
         self._probe = GpioSafetyProbe()
         self._gate = LaserCellBridge()
+        self._events = SafetyEventTracker(clock=clock)
+        # optional extra conditions (extraction, assist air, tube temperature); with none declared nothing changes
+        self._auxiliary = auxiliary
 
     def refresh_status(self) -> LaserSafetySnapshot:
         """Re-read the 3 real GPIO safeguards now.
@@ -132,7 +141,26 @@ class LaserMqttBridge:
 
     def state_publish(self) -> MqttPublish:
         """The retained `state` message for a reading taken right now."""
-        return MqttPublish(f"{TOPIC_PREFIX}state", _snapshot_payload(self.refresh_status(), int(self._clock() * 1000)), retain=True)
+        return MqttPublish(f"{TOPIC_PREFIX}state", self._state_payload(self.refresh_status()), retain=True)
+
+    def _state_payload(self, snapshot: LaserSafetySnapshot) -> str:
+        payload = _snapshot_payload(snapshot, int(self._clock() * 1000))
+        if self._auxiliary is None:
+            return payload
+        decoded = json.loads(payload)
+        decoded["auxiliary"] = self._auxiliary.evaluate()
+        return json.dumps(decoded)
+
+    def state_and_events(self) -> list[MqttPublish]:
+        """The retained `state` for a reading taken now, followed by the events (if any) that this reading shows since the last one."""
+        snapshot = self.refresh_status()
+        state = MqttPublish(f"{TOPIC_PREFIX}state", self._state_payload(snapshot), retain=True)
+        return [state, *self._events.observe(snapshot)]
+
+    def failed_state_and_events(self, reason: str) -> list[MqttPublish]:
+        """The fail-closed `state` plus the events that losing sight of the safeguards means."""
+        failed = LaserSafetySnapshot("", False, False, False)
+        return [self.failed_state_publish(reason), *self._events.observe(failed, reason=reason)]
 
     def failed_state_publish(self, reason: str) -> MqttPublish:
         """The retained `state` message for a bridge that can no longer see its safeguards: every one of them unsatisfied."""
@@ -194,6 +222,11 @@ class LaserMqttBridge:
             decision = self._gate.plan(job, self._cell_state(), snapshot)
             result = decision_to_dict(decision)
             result["mode"] = "gate-only"
+            if self._auxiliary is not None and job.phase is not JobPhase.ABORT:
+                missing = AuxiliarySupervisor.unsatisfied(self._auxiliary.evaluate())
+                if missing:
+                    result["allowed"] = False
+                    result["reason"] = "auxiliary safeguard not satisfied: " + ", ".join(missing)
             if job.phase is JobPhase.ABORT:
                 # the shared gate always lets an abort through, but this bridge has nothing to abort with: the laser is stopped by its own E-STOP and interlocks
                 result["forwarded"] = False
@@ -236,7 +269,8 @@ def build_edge_watch_on_change(bridge: LaserMqttBridge, publish: Callable[[MqttP
     unit-testable without a real GPIO chip, edge event or MQTT client."""
 
     def on_change() -> None:
-        publish(bridge.state_publish())
+        for message in bridge.state_and_events():
+            publish(message)
 
     return on_change
 
@@ -245,7 +279,8 @@ def build_edge_watch_on_failure(bridge: LaserMqttBridge, publish: Callable[[Mqtt
     """Build the callback `watch_for_interlock_edges()` calls when watching fails: the retained `state` becomes a fail-closed one (every safeguard unsatisfied, SAFE_STOP) saying why, so that nobody keeps reading an old "healthy"."""
 
     def on_failure(error: Exception) -> None:
-        publish(bridge.failed_state_publish(f"edge watcher failed: {type(error).__name__}"))
+        for message in bridge.failed_state_and_events(f"edge watcher failed: {type(error).__name__}"):
+            publish(message)
 
     return on_failure
 
@@ -340,7 +375,7 @@ def run_forever(
         if edge_watcher is not None:
             start_edge_watch_thread(
                 bridge,
-                lambda publish: client.publish(publish.topic, publish.payload, retain=publish.retain),  # type: ignore[attr-defined]
+                lambda publish: client.publish(publish.topic, publish.payload, qos=getattr(publish, "qos", 0), retain=publish.retain),  # type: ignore[attr-defined]
                 edge_watcher,
             )
 
