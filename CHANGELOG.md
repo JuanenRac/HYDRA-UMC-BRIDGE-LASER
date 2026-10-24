@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here.
 
-## [Unreleased]
+## [0.1.8] - A real controller state for GRBL laser boards and optional auxiliary safeguards
 
 - **A real controller state for GRBL laser boards.** `GrblLaserState` / `open_grbl_laser_state` read the state word of a GRBL-family laser controller over a serial port and are the `controller_state` of `LaserMqttBridge`. Read-only: the only byte written is the status query `?`. A board that does not answer is an empty state (`OFFLINE`), never idle. The laser power and the feed of the report appear in `state` as `laser_power` and `feed_rate`, as information and never as a safeguard. The port, the reconnecting connection, the status query and the parser are the shared SDK serial link of the CNC bridge. Needs an SDK newer than 0.3.6. Tested against a simulated board.
 - **Optional auxiliary safeguards.** A cell can declare fume extraction, assist air and CO2 tube temperature as checks (`AuxiliaryCheck`, `LaserMqttBridge(auxiliary=...)`); a job other than ABORT is refused, naming the failed check, while one is not satisfied, and an unreadable or non-finite reading counts as not satisfied. `state` carries an `auxiliary` map. Read-only. Covered by `tests/test_auxiliary.py`.
@@ -14,6 +14,10 @@ All notable changes to this project are documented here.
 - The banner follows the animated style of the ecosystem banners, with the name, the kind and the technologies of the project.
 - Added `tools/hydra_project_tool.py`: the same `validate`, `test`, `version`, `status` and `bump` commands in every repository. The checks run with `HYDRA_UMC_CI=1` and fail if the version changes; only `bump` changes it.
 - The SDK is now fetched at a release tag instead of the main branch, so a change of the SDK cannot break this repository by itself.
+
+## [0.1.8]
+
+- Successful incremental build: synchronized package metadata and `hydra-umc.project.json`.
 
 ## [0.1.7]
 
