@@ -123,12 +123,19 @@ HYDRA-UMC-BRIDGE-LASER/
 │   ├── test_idempotency.py      # Ein wiederholter Idempotenzschlüssel wird nur einmal beantwortet
 │   ├── gpio_mqtt_emulator.py    # Protokolltreuer GPIO/MQTT-Emulator (realistischer Test-Double)
 │   ├── test_gpio_mqtt_emulator.py # Bridge-Verhalten gegenüber dem GPIO/MQTT-Emulator
-│   └── test_hardening.py        # Feindliche Nutzlasten, Einzelanforderung mit simuliertem gpiod, Wächterausfall, ehrliche Antworten
+│   ├── test_hardening.py        # Feindliche Nutzlasten, Einzelanforderung mit simuliertem gpiod, Wächterausfall, ehrliche Antworten
+│   ├── test_edge_cases.py       # Lesen der Schutzeinrichtungen, Fehlerpfade des Wächters und Randfälle der Nutzlast
+│   ├── test_auxiliary.py        # Tests der Hilfsschutzeinrichtungen
+│   └── test_events.py           # Tests des Sicherheitsereignis-Stroms
 ├── tools/
 │   ├── build_test.py            # Nicht-mutierender Compiler + Testläufer (build-test.bat/.sh)
 │   ├── bump_version.py          # Synchronisiert pyproject.toml, Manifest und CHANGELOG.md
 │   ├── ci_validate.py           # Abhängigkeitsfreie, nicht-destruktive CI-Basislinie (verwendet von .github/workflows/ci.yml)
-│   └── inspect_controller_evidence.py # Normalisiert eine gespeicherte lokale Evidenz-JSON-Datei (keine Verbindung geöffnet)
+│   ├── inspect_controller_evidence.py # Normalisiert eine gespeicherte lokale Evidenz-JSON-Datei (keine Verbindung geöffnet)
+│   ├── _doc_policy.py                 # Von der Familie geteilte Dokumentationsregeln (Kopie der von HYDRA-UMC-SDK, synchron gehalten)
+│   ├── _readme_parity.py              # Prüfung, dass die acht READMEs dieselbe Struktur haben (Kopie der von HYDRA-UMC-SDK, synchron gehalten)
+│   ├── hydra_project_tool.py          # Dieselben Befehle in jedem Repository: validate, test, ci, version, status, bump
+│   └── extra_build_steps.py           # Die eigenen Build-Schritte dieses Repositorys neben dem gemeinsamen Build-Test (seine Unit-Tests)
 ├── docs/
 │   ├── BRIDGE_GUIDE.md                    # Umfang, kompatible Plattformen, Skripte, Hardware-Abnahmegatter
 │   ├── CONTROLLER_EVIDENCE_BOUNDARY.md    # Was als echter Sicherheitsnachweis zählt und was diese Bridge nicht ableitet

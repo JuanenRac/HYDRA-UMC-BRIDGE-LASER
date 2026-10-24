@@ -123,12 +123,19 @@ HYDRA-UMC-BRIDGE-LASER/
 │   ├── test_idempotency.py      # Una clave de idempotencia repetida se responde una sola vez
 │   ├── gpio_mqtt_emulator.py    # Emulador de GPIO/MQTT fiel al protocolo (doble de prueba realista)
 │   ├── test_gpio_mqtt_emulator.py # Comportamiento del bridge frente al emulador GPIO/MQTT
-│   └── test_hardening.py        # Cargas hostiles, petición única con gpiod simulado, fallo del vigilante, respuestas honestas
+│   ├── test_hardening.py        # Cargas hostiles, petición única con gpiod simulado, fallo del vigilante, respuestas honestas
+│   ├── test_edge_cases.py       # Lecturas de las salvaguardas, rutas de fallo del vigilante y casos límite de la carga útil
+│   ├── test_auxiliary.py        # Tests de las salvaguardas auxiliares
+│   └── test_events.py           # Tests del flujo de eventos de seguridad
 ├── tools/
 │   ├── build_test.py            # Compilador + ejecutor de pruebas no mutante (build-test.bat/.sh)
 │   ├── bump_version.py          # Sincroniza pyproject.toml, manifiesto y CHANGELOG.md
 │   ├── ci_validate.py           # Línea base de CI sin dependencias y no destructiva (usada por .github/workflows/ci.yml)
-│   └── inspect_controller_evidence.py # Normaliza un archivo JSON de evidencia local guardado (sin abrir enlace)
+│   ├── inspect_controller_evidence.py # Normaliza un archivo JSON de evidencia local guardado (sin abrir enlace)
+│   ├── _doc_policy.py                 # Reglas de documentación compartidas por la familia (copia de la de HYDRA-UMC-SDK, mantenida en sincronía)
+│   ├── _readme_parity.py              # Comprobación de que los ocho README comparten estructura (copia de la de HYDRA-UMC-SDK, mantenida en sincronía)
+│   ├── hydra_project_tool.py          # Los mismos comandos en todos los repositorios: validate, test, ci, version, status, bump
+│   └── extra_build_steps.py           # Los pasos de compilación propios de este repositorio además de la prueba de compilación compartida (sus tests unitarios)
 ├── docs/
 │   ├── BRIDGE_GUIDE.md                    # Alcance, plataformas compatibles, scripts, puerta de aceptación de hardware
 │   ├── CONTROLLER_EVIDENCE_BOUNDARY.md    # Qué cuenta como evidencia de seguridad real y qué se niega a inferir este bridge

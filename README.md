@@ -123,12 +123,19 @@ HYDRA-UMC-BRIDGE-LASER/
 │   ├── test_idempotency.py      # A repeated idempotency key is answered once
 │   ├── gpio_mqtt_emulator.py    # Protocol-faithful GPIO/MQTT emulator (realistic test double)
 │   ├── test_gpio_mqtt_emulator.py # Bridge behaviour against the GPIO/MQTT emulator
-│   └── test_hardening.py        # Hostile payloads, fake gpiod single request, watcher failure, honest answers
+│   ├── test_hardening.py        # Hostile payloads, fake gpiod single request, watcher failure, honest answers
+│   ├── test_edge_cases.py       # Safeguard reads, watcher failure paths and payload edge cases
+│   ├── test_auxiliary.py        # Auxiliary safeguard tests
+│   └── test_events.py           # Safety event stream tests
 ├── tools/
 │   ├── build_test.py            # Non-mutating compile + test runner (build-test.bat/.sh)
 │   ├── bump_version.py          # Synchronizes pyproject.toml, manifest and CHANGELOG.md
 │   ├── ci_validate.py           # Dependency-free, non-destructive CI baseline (used by .github/workflows/ci.yml)
-│   └── inspect_controller_evidence.py # Normalizes a saved local evidence JSON file (no link opened)
+│   ├── inspect_controller_evidence.py # Normalizes a saved local evidence JSON file (no link opened)
+│   ├── _doc_policy.py                 # Documentation rules shared by the family (a copy of HYDRA-UMC-SDK's, kept in sync)
+│   ├── _readme_parity.py              # Check that the eight READMEs share one structure (a copy of HYDRA-UMC-SDK's, kept in sync)
+│   ├── hydra_project_tool.py          # The same commands in every repository: validate, test, ci, version, status, bump
+│   └── extra_build_steps.py           # The build steps of this repository beyond the shared build test (its own unit tests)
 ├── docs/
 │   ├── BRIDGE_GUIDE.md                    # Scope, compatible platforms, scripts, hardware acceptance gate
 │   ├── CONTROLLER_EVIDENCE_BOUNDARY.md    # What counts as real safety evidence vs. what this bridge refuses to infer

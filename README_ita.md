@@ -123,12 +123,19 @@ HYDRA-UMC-BRIDGE-LASER/
 │   ├── test_idempotency.py      # Una chiave di idempotenza ripetuta riceve una sola risposta
 │   ├── gpio_mqtt_emulator.py    # Emulatore GPIO/MQTT fedele al protocollo (test double realistico)
 │   ├── test_gpio_mqtt_emulator.py # Comportamento del bridge rispetto all'emulatore GPIO/MQTT
-│   └── test_hardening.py        # Payload ostili, richiesta unica con gpiod simulato, guasto del sorvegliante, risposte oneste
+│   ├── test_hardening.py        # Payload ostili, richiesta unica con gpiod simulato, guasto del sorvegliante, risposte oneste
+│   ├── test_edge_cases.py       # Letture delle protezioni, percorsi di guasto del sorvegliante e casi limite del payload
+│   ├── test_auxiliary.py        # Test delle protezioni ausiliarie
+│   └── test_events.py           # Test del flusso di eventi di sicurezza
 ├── tools/
 │   ├── build_test.py            # Compilatore + esecutore di test non mutante (build-test.bat/.sh)
 │   ├── bump_version.py          # Sincronizza pyproject.toml, manifesto e CHANGELOG.md
 │   ├── ci_validate.py           # Base CI priva di dipendenze e non distruttiva (usata da .github/workflows/ci.yml)
-│   └── inspect_controller_evidence.py # Normalizza un file JSON di evidenza locale salvato (nessun collegamento aperto)
+│   ├── inspect_controller_evidence.py # Normalizza un file JSON di evidenza locale salvato (nessun collegamento aperto)
+│   ├── _doc_policy.py                 # Regole di documentazione condivise dalla famiglia (copia di quella di HYDRA-UMC-SDK, mantenuta sincronizzata)
+│   ├── _readme_parity.py              # Verifica che gli otto README abbiano la stessa struttura (copia di quella di HYDRA-UMC-SDK, mantenuta sincronizzata)
+│   ├── hydra_project_tool.py          # Gli stessi comandi in ogni repository: validate, test, ci, version, status, bump
+│   └── extra_build_steps.py           # I passi di compilazione propri di questo repository oltre al test di compilazione condiviso (i suoi unit test)
 ├── docs/
 │   ├── BRIDGE_GUIDE.md                    # Ambito, piattaforme compatibili, script, porta di accettazione hardware
 │   ├── CONTROLLER_EVIDENCE_BOUNDARY.md    # Cosa conta come evidenza di sicurezza reale e cosa questo bridge rifiuta di dedurre

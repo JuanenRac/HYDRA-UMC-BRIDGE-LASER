@@ -123,12 +123,19 @@ HYDRA-UMC-BRIDGE-LASER/
 │   ├── test_idempotency.py      # 重複した冪等キーには一度だけ応答する
 │   ├── gpio_mqtt_emulator.py    # プロトコル忠実な GPIO/MQTT エミュレータ（現実的なテストダブル）
 │   ├── test_gpio_mqtt_emulator.py # GPIO/MQTT エミュレータに対する bridge の振る舞い
-│   └── test_hardening.py        # 悪意あるペイロード、模擬gpiodでの単一リクエスト、監視の失敗、正直な応答
+│   ├── test_hardening.py        # 悪意あるペイロード、模擬gpiodでの単一リクエスト、監視の失敗、正直な応答
+│   ├── test_edge_cases.py       # 保護装置の読み取り、監視処理の障害経路、ペイロードの境界ケース
+│   ├── test_auxiliary.py        # 補助保護装置のテスト
+│   └── test_events.py           # 安全イベントストリームのテスト
 ├── tools/
 │   ├── build_test.py            # 非破壊的なコンパイル+テストランナー (build-test.bat/.sh)
 │   ├── bump_version.py          # pyproject.toml、マニフェスト、CHANGELOG.md を同期
 │   ├── ci_validate.py           # 依存関係なし・非破壊のCIベースライン (.github/workflows/ci.yml が使用)
-│   └── inspect_controller_evidence.py # 保存済みのローカル証拠 JSON ファイルを正規化する（接続を開かない）
+│   ├── inspect_controller_evidence.py # 保存済みのローカル証拠 JSON ファイルを正規化する（接続を開かない）
+│   ├── _doc_policy.py                 # ファミリー共通のドキュメント規則 (HYDRA-UMC-SDK のコピーで、同期を維持)
+│   ├── _readme_parity.py              # 8つの README が同じ構造であることの検査 (HYDRA-UMC-SDK のコピーで、同期を維持)
+│   ├── hydra_project_tool.py          # すべてのリポジトリで共通のコマンド: validate、test、ci、version、status、bump
+│   └── extra_build_steps.py           # 共通のビルドテストに加えた、このリポジトリ固有のビルド手順 (独自のユニットテスト)
 ├── docs/
 │   ├── BRIDGE_GUIDE.md                    # 適用範囲、対応プラットフォーム、スクリプト、ハードウェア受け入れゲート
 │   ├── CONTROLLER_EVIDENCE_BOUNDARY.md    # 何が実際の安全性の証拠とみなされ、このbridgeが何を推測しないか

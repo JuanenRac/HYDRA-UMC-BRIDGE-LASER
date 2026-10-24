@@ -123,12 +123,19 @@ HYDRA-UMC-BRIDGE-LASER/
 │   ├── test_idempotency.py      # 重复的幂等键只处理一次
 │   ├── gpio_mqtt_emulator.py    # 协议忠实的 GPIO/MQTT 模拟器（真实的测试替身）
 │   ├── test_gpio_mqtt_emulator.py # 针对 GPIO/MQTT 模拟器的 bridge 行为
-│   └── test_hardening.py        # 恶意负载、模拟 gpiod 的单一请求、监视器失败、诚实的回复
+│   ├── test_hardening.py        # 恶意负载、模拟 gpiod 的单一请求、监视器失败、诚实的回复
+│   ├── test_edge_cases.py       # 保护装置读取、监视器故障路径和载荷边界情况
+│   ├── test_auxiliary.py        # 辅助保护装置测试
+│   └── test_events.py           # 安全事件流测试
 ├── tools/
 │   ├── build_test.py            # 非变更式编译 + 测试运行器 (build-test.bat/.sh)
 │   ├── bump_version.py          # 同步 pyproject.toml、清单和 CHANGELOG.md
 │   ├── ci_validate.py           # 无依赖、非破坏性的CI基线检查 (由 .github/workflows/ci.yml 使用)
-│   └── inspect_controller_evidence.py # 规范化已保存的本地证据 JSON 文件（不打开任何连接）
+│   ├── inspect_controller_evidence.py # 规范化已保存的本地证据 JSON 文件（不打开任何连接）
+│   ├── _doc_policy.py                 # 家族共享的文档规则 (HYDRA-UMC-SDK 的副本,保持同步)
+│   ├── _readme_parity.py              # 检查八个 README 结构一致 (HYDRA-UMC-SDK 的副本,保持同步)
+│   ├── hydra_project_tool.py          # 每个仓库相同的命令: validate、test、ci、version、status、bump
+│   └── extra_build_steps.py           # 除共享构建测试外,本仓库自己的构建步骤 (自带的单元测试)
 ├── docs/
 │   ├── BRIDGE_GUIDE.md                    # 范围、兼容平台、脚本、硬件验收门控
 │   ├── CONTROLLER_EVIDENCE_BOUNDARY.md    # 什么算作真实安全证据,以及此 bridge 拒绝推断的内容
