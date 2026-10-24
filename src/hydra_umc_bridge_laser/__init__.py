@@ -8,6 +8,7 @@
 from .cell import LaserCellBridge, LaserSafetySnapshot
 from .auxiliary import AuxiliaryCheck, AuxiliarySupervisor
 from .events import EventPublish, SafetyEventTracker
+from .grbl_state import GrblLaserState, open_grbl_laser_state
 from .gpio_safety import (
     EdgeEventSource,
     GpioLineReader,
@@ -34,6 +35,8 @@ __all__ = [
     "AuxiliarySupervisor",
     "EventPublish",
     "SafetyEventTracker",
+    "GrblLaserState",
+    "open_grbl_laser_state",
     "LaserCellBridge",
     "LaserSafetySnapshot",
     "snapshot_from_mapping",

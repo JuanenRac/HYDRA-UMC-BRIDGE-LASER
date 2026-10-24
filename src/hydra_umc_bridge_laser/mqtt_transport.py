@@ -30,7 +30,7 @@ convention, `docs/BRIDGE_TOPICS.md`):
   hydra/bridges/laser/cmd/status      -> (empty) re-read the 3 GPIO safeguards + publish state
   hydra/bridges/laser/cmd/job         -> BridgeJob JSON (job_to_dict shape) - the shared bridge-contract gate (plan only: it never acts)
   hydra/bridges/laser/cmd/job/result  <- published, GateDecision JSON
-  (state also carries "auxiliary": {name: bool} when extraction/assist-air/temperature checks are declared)
+  (state also carries "auxiliary": {name: bool} when extraction/assist-air/temperature checks are declared, and "laser_power" / "feed_rate" when the controller state comes from a GRBL reader that keeps its last report)
   hydra/bridges/laser/event/safety          <- published, QoS 1, not retained: one record per safeguard that changed (see events.py)
   hydra/bridges/laser/event/interlock_open  <- published, QoS 1, not retained: the cell went from safe to unsafe
 
@@ -49,6 +49,7 @@ from typing import Callable
 
 from hydra_umc_sdk.bridge_contract import BridgeError, CellState, JobPhase, decision_to_dict, job_from_dict
 from hydra_umc_sdk.job_intake import IdempotencyStore
+from hydra_umc_sdk.serial_link import GrblReport
 from hydra_umc_sdk.bridge_transport import MessageDispatcher as SharedMessageDispatcher
 from hydra_umc_sdk.bridge_transport import MqttPublish, connect_with_retry, open_bridge_client
 
@@ -145,11 +146,28 @@ class LaserMqttBridge:
 
     def _state_payload(self, snapshot: LaserSafetySnapshot) -> str:
         payload = _snapshot_payload(snapshot, int(self._clock() * 1000))
-        if self._auxiliary is None:
+        report = self._controller_report()
+        if self._auxiliary is None and report is None:
             return payload
         decoded = json.loads(payload)
-        decoded["auxiliary"] = self._auxiliary.evaluate()
+        if self._auxiliary is not None:
+            decoded["auxiliary"] = self._auxiliary.evaluate()
+        if report is not None:
+            # what a GRBL laser controller reported besides its state: information for the operator, never a safeguard
+            decoded["laser_power"] = report.spindle_speed
+            decoded["feed_rate"] = report.feed_rate
         return json.dumps(decoded)
+
+    def _controller_report(self) -> "GrblReport | None":
+        """The last report of the controller, when `controller_state` is a reader that keeps one (see `grbl_state.GrblLaserState`)."""
+        reader = getattr(self._controller_state, "last_report", None)
+        if not callable(reader):
+            return None
+        try:
+            report = reader()
+        except Exception:  # noqa: BLE001 - extra information must never keep the state from being published
+            return None
+        return report if report is not None and getattr(report, "state", "") else None
 
     def state_and_events(self) -> list[MqttPublish]:
         """The retained `state` for a reading taken now, followed by the events (if any) that this reading shows since the last one."""
