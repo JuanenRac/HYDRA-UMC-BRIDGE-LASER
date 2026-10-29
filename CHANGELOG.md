@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+- **The layout of the README is checked in the CI:** the validator runs `tools/universal_readme_check.py` and lists, as a warning, what differs from the universal layout of the README.
+
 ## [0.1.8] - A real controller state for GRBL laser boards and optional auxiliary safeguards
 
 - **A real controller state for GRBL laser boards.** `GrblLaserState` / `open_grbl_laser_state` read the state word of a GRBL-family laser controller over a serial port and are the `controller_state` of `LaserMqttBridge`. Read-only: the only byte written is the status query `?`. A board that does not answer is an empty state (`OFFLINE`), never idle. The laser power and the feed of the report appear in `state` as `laser_power` and `feed_rate`, as information and never as a safeguard. The port, the reconnecting connection, the status query and the parser are the shared SDK serial link of the CNC bridge. Needs an SDK newer than 0.3.6. Tested against a simulated board.
