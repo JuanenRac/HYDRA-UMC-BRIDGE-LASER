@@ -55,7 +55,7 @@ from hydra_umc_sdk.bridge_transport import MqttPublish, connect_with_retry, open
 
 from .cell import LaserCellBridge, LaserSafetySnapshot
 from .auxiliary import AuxiliarySupervisor
-from .events import SafetyEventTracker
+from .events import EventPublish, SafetyEventTracker
 from .gpio_safety import EdgeEventSource, GpioSafetyLines, GpioSafetyProbe, watch_for_interlock_edges
 
 TOPIC_PREFIX = "hydra/bridges/laser/"
@@ -85,7 +85,7 @@ def _refusal(suffix: str, reason: str) -> list[MqttPublish]:
     parts = suffix.split("/")
     if len(parts) != 2 or parts[0] != "cmd":
         return []
-    return [MqttPublish(f"{TOPIC_PREFIX}{suffix}/result", json.dumps({"allowed": False, "executed": False, "reason": reason}))]
+    return [EventPublish(f"{TOPIC_PREFIX}{suffix}/result", json.dumps({"allowed": False, "executed": False, "reason": reason}))]
 
 
 class LaserMqttBridge:
@@ -229,7 +229,7 @@ class LaserMqttBridge:
             job = job_from_dict(json.loads(payload))
         except (json.JSONDecodeError, BridgeError, UnicodeDecodeError) as error:
             decision = {"allowed": False, "reason": f"malformed job payload: {error}"}
-            return MqttPublish(result_topic, json.dumps(decision))
+            return EventPublish(result_topic, json.dumps(decision))
         key = f"job:{job.idempotency_key}"
         repeat = self._repeat(key, result_topic, {"allowed": False, "reason": "this idempotency_key was already handled"})
         if repeat is not None:
@@ -249,18 +249,18 @@ class LaserMqttBridge:
                 # the shared gate always lets an abort through, but this bridge has nothing to abort with: the laser is stopped by its own E-STOP and interlocks
                 result["forwarded"] = False
                 result["reason"] = "abort acknowledged by the gate only - nothing was stopped; this bridge cannot stop a laser, use its physical E-STOP"
-            return self._answer(key, MqttPublish(result_topic, json.dumps(result)))
+            return self._answer(key, EventPublish(result_topic, json.dumps(result)))
         except Exception as error:  # noqa: BLE001
             _LOG.exception("cmd/job failed")
             failure = {"allowed": False, "reason": f"the job could not be handled: {type(error).__name__}"}
-            return self._answer(key, MqttPublish(result_topic, json.dumps(failure)))
+            return self._answer(key, EventPublish(result_topic, json.dumps(failure)))
 
     def _repeat(self, key: str, result_topic: str, fallback: dict) -> MqttPublish | None:
         """None when this job key is new (it is claimed now); otherwise the answer given the first time, which is sent again instead of running the job a second time."""
         if self._idempotency is None or self._idempotency.claim(key):
             return None
         stored = self._idempotency.recall(key)
-        return MqttPublish(result_topic, stored if stored is not None else json.dumps(fallback))
+        return EventPublish(result_topic, stored if stored is not None else json.dumps(fallback))
 
     def _answer(self, key: str, publish: MqttPublish) -> MqttPublish:
         if self._idempotency is not None:

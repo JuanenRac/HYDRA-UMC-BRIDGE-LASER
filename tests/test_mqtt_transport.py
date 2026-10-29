@@ -63,6 +63,7 @@ class JobCommandTests(unittest.TestCase):
         publishes = b.handle_message(f"{TOPIC_PREFIX}cmd/job", json.dumps(job_to_dict(job())).encode("utf-8"))
         self.assertEqual(publishes[0].topic, f"{TOPIC_PREFIX}cmd/job/result")
         self.assertTrue(json.loads(publishes[0].payload)["allowed"])
+        self.assertEqual(getattr(publishes[0], "qos", 0), 1)   # the answer to a command is asked for at QoS 1
 
     def test_a_job_is_rejected_when_a_safeguard_is_open(self):
         b = bridge(key=False)
