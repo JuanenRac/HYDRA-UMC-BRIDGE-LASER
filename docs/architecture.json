@@ -1,0 +1,132 @@
+{
+  "repo": "HYDRA-UMC-BRIDGE-LASER",
+  "ecosystem": "hydra",
+  "tagline": "Three independent safeguards decide whether a laser cell may take work; the bridge can never fire the laser.",
+  "description": "HYDRA-UMC-BRIDGE-LASER reads the key switch, the enclosure and the interlock over three separate GPIO lines and the state of a GRBL laser controller, builds a safety snapshot, passes every job through the shared evaluate_job gate of HYDRA-UMC-SDK and answers over MQTT. It coordinates auxiliaries only: it cannot arm or fire a laser.",
+  "columns": [
+    "WHO COMMANDS IT",
+    "THIS REPOSITORY",
+    "WHAT IT READS"
+  ],
+  "nodes": [
+    {
+      "id": "broker",
+      "column": 0,
+      "level": "external",
+      "title": "HYDRA-UMC-MQTT-BROKER",
+      "lines": [
+        "carries cmd/job and the",
+        "state and event topics"
+      ],
+      "title_size": 12
+    },
+    {
+      "id": "sdk",
+      "column": 0,
+      "level": "contract",
+      "title": "HYDRA-UMC-SDK",
+      "lines": [
+        "evaluate_job(): the gate",
+        "every bridge shares"
+      ]
+    },
+    {
+      "id": "mqtt",
+      "column": 1,
+      "level": "tested",
+      "title": "mqtt_transport.py",
+      "lines": [
+        "cmd/status, cmd/job; retained",
+        "state; safety events"
+      ],
+      "code": [
+        "src/hydra_umc_bridge_laser/mqtt_transport.py::TOPIC_PREFIX"
+      ]
+    },
+    {
+      "id": "cell",
+      "column": 1,
+      "level": "contract",
+      "title": "cell.py",
+      "lines": [
+        "LaserSafetySnapshot: every",
+        "safeguard must say safe"
+      ],
+      "code": [
+        "src/hydra_umc_bridge_laser/cell.py",
+        "src/hydra_umc_bridge_laser/events.py"
+      ]
+    },
+    {
+      "id": "gpio",
+      "column": 1,
+      "level": "tested",
+      "title": "gpio_safety.py",
+      "lines": [
+        "three GPIO lines, fail-safe",
+        "bias, debounce, edge watch"
+      ],
+      "code": [
+        "src/hydra_umc_bridge_laser/gpio_safety.py::class GpioSafetyProbe"
+      ]
+    },
+    {
+      "id": "lines",
+      "column": 2,
+      "level": "untested",
+      "title": "Key, enclosure, interlock",
+      "lines": [
+        "real libgpiod lines; never",
+        "wired to a real laser cell"
+      ],
+      "title_size": 12
+    },
+    {
+      "id": "grbl",
+      "column": 2,
+      "level": "untested",
+      "title": "GRBL laser controller",
+      "lines": [
+        "status query only; never",
+        "run against a real one"
+      ],
+      "title_size": 12
+    }
+  ],
+  "edges": [
+    {
+      "from": "broker",
+      "to": "mqtt",
+      "label": "cmd/job",
+      "level": "tested"
+    },
+    {
+      "from": "sdk",
+      "to": "cell",
+      "label": "gate",
+      "level": "contract"
+    },
+    {
+      "from": "mqtt",
+      "to": "cell",
+      "level": "tested"
+    },
+    {
+      "from": "cell",
+      "to": "gpio",
+      "level": "tested"
+    },
+    {
+      "from": "gpio",
+      "to": "lines",
+      "level": "untested"
+    },
+    {
+      "from": "cell",
+      "to": "grbl",
+      "label": "status",
+      "level": "untested"
+    }
+  ],
+  "footer": "The GPIO reader and the GRBL reader were tested against fake lines and an emulator, not against a real laser cell."
+}

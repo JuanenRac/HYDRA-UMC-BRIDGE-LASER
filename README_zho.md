@@ -1,32 +1,35 @@
 <!-- =============================================================================
-HYDRA-UMC-BRIDGE-LASER - 激光单元协调桥接
+HYDRA-UMC-BRIDGE-LASER - Laser cell coordination bridge
 Copyright (C) JuanenRac (Electro Hobby 3D) <electrohobby3d@gmail.com>
 GPL-3.0-or-later - see LICENSE
 ============================================================================= -->
 
 <p align="center">
-  <img src="images/HYDRA_UMC_BANNER.svg" alt="HYDRA-UMC-BRIDGE-LASER 横幅" width="100%">
+  <img src="images/HYDRA_UMC_BANNER.svg" alt="HYDRA-UMC-BRIDGE-LASER banner" width="100%">
 </p>
 
-# 🔦 HYDRA-UMC-BRIDGE-LASER
+# 🔆 HYDRA-UMC-BRIDGE-LASER
 
 <p align="center"><a href="README.md">🇺🇸 English</a> | <a href="README_spa.md">🇪🇸 Español</a> | <a href="README_fra.md">🇫🇷 Français</a> | <a href="README_ita.md">🇮🇹 Italiano</a> | <a href="README_deu.md">🇩🇪 Deutsch</a> | 🇨🇳 <b>简体中文</b> | <a href="README_jpn.md">🇯🇵 日本語</a> | <a href="README_por.md">🇵🇹 Português</a></p>
 
 ### 🛑 面向激光单元的故障安全协调桥接
 
 <p align="center">
-  <img src="https://img.shields.io/badge/许可证-GPL%203.0--or--later-blue.svg" alt="GPL 3.0 or later">
-  <img src="https://img.shields.io/badge/Python-3.11%2B-3776AB.svg" alt="Python 3.11+">
-  <img src="https://img.shields.io/badge/Safety-Fails%20Closed-red.svg" alt="故障安全">
+  <img src="https://img.shields.io/badge/License-GPL%203.0--or--later-blue.svg" alt="GPL 3.0 or later">
+  <img src="https://img.shields.io/badge/Python-3.11%2B-3776AB.svg" alt="Python">
+  <img src="https://img.shields.io/badge/Safety-Fails%20Closed-red.svg" alt="Safety">
+  <img src="https://img.shields.io/badge/Tests-149%20passing-2ea44f.svg" alt="Tests">
+  <img src="https://img.shields.io/badge/Version-0.1.8-0f6cbd.svg" alt="Version">
+  <img src="https://img.shields.io/badge/Maturity-functional-0F6CBD.svg" alt="Maturity">
 </p>
 
 ---
 
 > **诚实检查——今天真正可运行的部分：** 四信号安全快照及其门控（`cell.py` 中的 `LaserSafetySnapshot`/`LaserCellBridge`，每个任务都会经过 `HYDRA-UMC-SDK` 自身真正的 `evaluate_job()`）、只读的证据归一化器（`observation.py`）、真正的 GPIO 联锁读取器（`gpio_safety.py` 中的 `GpioSafetyProbe`，libgpiod v2），以及 MQTT 状态/证据传输（`mqtt_transport.py`）都是真实的，并由 149 个通过的 `unittest` 用例覆盖（`python tools/build_test.py`），其中包括让该桥接对抗一个协议忠实但纯手写的 GPIO/MQTT 模拟器的 `tests/test_gpio_mqtt_emulator.py`。以上这些都从未接触过真实的 GPIO 芯片、真实的 MQTT broker 或真实的激光控制器——`test_gpio_safety.py` 读取的是一个伪造芯片，`test_mqtt_transport.py` 使用的是一个伪造的 broker 客户端。目前还没有具体的激光控制器/软件集成，因为相应的机器及其文档化接口尚不可用——详见下文的"当前状态与后续步骤"（已经如实说明了这一点），以及 `CHANGELOG.md` 中目前具体已交付的内容。
 
----
-
 > **安全与安防现状:**本生态系统不是经认证的安全系统。目前尚无硬件 E-STOP 通路,没有由固件强制执行的限位或联锁,也没有经过验证的运动指令;固件映像使用 CRC32 和共享密钥的 HMAC-SHA256 校验,而非非对称签名;TLS 与双向 TLS 均为可选项,默认关闭;自制电路板尚未组装或测试。在依赖此处任何说法来保障人身安全之前,请先阅读[安全基线](https://github.com/JuanenRac/HYDRA-UMC-DOCS/blob/main/docs/SECURITY_BASELINE.md)和[威胁模型](https://github.com/JuanenRac/HYDRA-UMC-DOCS/blob/main/docs/THREAT_MODEL.md)。
+
+---
 
 ## 📋 速览
 
@@ -34,10 +37,12 @@ GPL-3.0-or-later - see LICENSE
 |---|---|
 | 版本 | `0.1.8` |
 | 成熟度 | 可用 |
-| 测试 | 96 (`python tools/build_test.py`) |
+| 测试 | 149 (`python tools/build_test.py`) |
 | 技术栈 | Python / Laser controller / G-code / Safety evidence / GPIO interlock reading |
 | 目标 | HYDRA-UMC 工作单元的 Raspberry Pi CM5 |
 | 真实硬件 | 仅模拟：使用模拟器、替身或仿真测试；此版本没有在真实硬件上运行的记录 |
+
+**跳转：** [概述](#-概述) · [架构](#-架构) · [功能](#-功能) · [安全与防护](#-安全与防护) · [接口](#-接口) · [配置](#-配置) · [快速开始](#-快速开始) · [测试](#-测试) · [故障排除](#-故障排除) · [仓库结构](#-仓库结构) · [相关项目](#-相关项目)
 
 ## 🚦 项目状态
 
@@ -48,34 +53,30 @@ GPL-3.0-or-later - see LICENSE
 | 领域 | 状态 | 在这里的含义 |
 |---|---|---|
 | 软件 | 🟡 | 主要用途可用；上面的诚实性检查列出了仍然缺少的内容 |
-| 测试 | 🟢 | 96 项自动测试，每次变更都会运行 |
+| 测试 | 🟢 | 149 项自动测试，每次变更都会运行 |
 | 真实硬件 | 🟠 | 仅模拟：使用模拟器、替身或仿真测试；此版本没有在真实硬件上运行的记录 |
 | 文档 | 🟢 | 八种语言的 README，每次变更都会与清单核对 |
 
-## 1. 🛠️ 技术概览
+## 🎯 概述
 
 **HYDRA-UMC-BRIDGE-LASER** 是激光单元与 HYDRA-UMC 机器人辅助设备之间的高层桥接。它可以协调诸如物料交接之类的安全外围任务,但**绝不能**为激光控制器解锁、触发或越权操作——那些是它读取的观测量,而不是它拥有的权限。
 
 它属于 **External Automation Bridges** 家族:一组共享 `HYDRA-UMC-SDK` 相同安全契约的兄弟仓库(CNC、LASER、OPENPNP、PRINTER3D、ROS2),因此任何一个桥接都不能自行发明"可以安全工作"的定义。
 
-### 核心特性:
-* ✅ **四信号安全快照(软件逻辑,未接激光器即完成测试):** `cell.py` 中的 `LaserSafetySnapshot.machine_state()` 要求钥匙开关启用、防护罩关闭**且**联锁状态健康这三者同时成立;只要缺少任何一项,甚至在读取 `controller_state` 之前就会解析为 `SAFE_STOP`。*(已实现,并在 `tests/test_cell.py` 中测试)*
-* ✅ **真实的共享安全门控:** 每个被观察到的任务都会通过 `HYDRA-UMC-SDK` 的 `bridge_contract` 中的 `evaluate_job()` 重新评估,这与所有兄弟桥接使用的是同一个门控。*(已实现)*
-* ✅ **保守的状态映射:** 只有 `IDLE` 被视为空闲;`RUN`/`RUNNING`/`PAUSED` 映射为 `RUNNING`,`FAULT`/`ALARM`/`ERROR` 映射为 `FAULT`,任何无法识别的值都会回落到 `OFFLINE`。*(已实现)*
-* ✅ **只读安全证据:** `observation.py` 只接受钥匙、防护罩和联锁的真实布尔信号;缺失、数值型或文本型的值都会安全失效关闭。它既不能使激光武装,也不能触发激光。*(已实现,在 `tests/test_observation.py` 中测试)*
-* ✅ **与控制器无关的 GPIO 联锁读取(仅针对模拟芯片测试):** `gpio_safety.py` 的 `GpioSafetyProbe` 从 GPIO 线路(libgpiod v2;测试使用模拟芯片)读取这 3 项独立防护,而不是依赖保存的映射——刻意做到与控制器无关,因为钥匙开关/门传感器/联锁继电器在各品牌激光切割机上都是通用的。GPIO 读取失败会使这 3 项防护全部安全失效关闭。*(已实现,在 `tests/test_gpio_safety.py` 中测试)*
-* ✅ **边沿触发的联锁监控(仅针对模拟芯片测试):** `open_gpio_safety()` 只打开一次钥匙、防护罩和联锁这几条线(`INPUT`、`Edge.BOTH`),并用这唯一的请求同时服务电平读取器和边沿监视器——内核会拒绝对同一批线路的第二次请求。`watch_for_interlock_edges()` 阻塞等待内核自身的边沿事件通知(libgpiod v2),而不是仅在无关的 MQTT 消息提出请求时才重新读取电平;`run_forever(edge_watcher=...)` 会启动一个守护线程,在线路发生跳变的瞬间发布更新后的保留 `state`;若监视器失败,它会发布一个故障安全的 `state`(`SAFE_STOP`,附带原因)并继续重试。每条线的接线都需要声明(`GpioLineSettings`:`active_low`、`bias`——默认值会让断线被读为不安全——以及 `debounce_ms`);参见 `docs/WIRING_GUIDE.md`。尚未在真实 GPIO 芯片上验证。*(已实现,在 `tests/test_gpio_safety.py` 以及使用模拟 `gpiod` 的 `tests/test_hardening.py` 中测试)*
-* ✅ **安全事件流(使用模拟线路和模拟边沿监视器测试):** `events.py` 把钥匙、机箱和互锁的每一次变化转成带时间戳的记录,发布到 `hydra/bridges/laser/event/safety`(数据湖用于审计和 OEE 的日志);当单元由安全变为不安全时,仅一次发布 `hydra/bridges/laser/event/interlock_open` 事件,列出已打开的保护,以便编排器立即停止单元的机械臂。两者均为 QoS 1 且从不保留;都带有 `at_ms` 和递增的 `sequence`;第一次读取只作为基准;边沿监视器失败时,该丢失同样作为互锁打开上报。该 bridge 只做上报:它无法停止激光器。*(已实现,在 `tests/test_events.py` 中测试)*
-* ✅ **可选的辅助保护(使用模拟输入测试):** `auxiliary.py` 允许单元声明额外条件 —— 排烟运行中、辅助气开启、CO2 激光管温度不超过某一限值 —— 以 `AuxiliaryCheck` 传给 `LaserMqttBridge(auxiliary=...)`。只要有一项未满足,除 ABORT 之外的作业都会被拒绝,并指明失败的检查;无法读取、非数值或非有限的读数视为未满足;`state` 带有 `auxiliary` 映射。未声明时一切不变。只读:不切换任何东西。*(已实现,在 `tests/test_auxiliary.py` 中测试)*
-* ✅ **非变更式构建/测试:** `build-test.bat`/`.sh` 编译源码并运行安全门控测试套件,不会触碰版本文件或 CHANGELOG。*(已实现,见下方"构建与运行")*
-* ✅ **GRBL 激光状态读取器(仅针对模拟板卡测试):** `grbl_state.py` 的 `GrblLaserState` 是串口上 GRBL 系列激光控制器(LaserGRBL 和 LightBurn 驱动的那类板卡)的真实 `controller_state`:它发送 GRBL 的状态查询 `?`,并返回报告中的状态词。它刻意只读——唯一写出的字节是 `?`,没有暂停、复位、恢复或 G 代码——并且失效即关闭(没有应答就是空状态,绝不是空闲)。串口、可重连的连接和解析器是 CNC 桥接也使用的 SDK 共享串口连接。报告中的激光功率和进给作为信息放入 `state`(`laser_power`、`feed_rate`),绝不作为安全保护。GRBL 板卡只有一个串口:LightBurn 或 LaserGRBL 占用它时,此读取器无法使用。*(已实现,尚未在真实板卡上试过)*
-* 🔜 **具体的激光控制器/软件集成** —— 刻意推迟,直到设备及其文档化接口就绪。*(计划中)*
-* ✅ **重复的幂等键：** `LaserMqttBridge` 接受 `IdempotencyStore`：重复的作业键会得到第一次给出的答复，而不是被重新评估。*（已实现，已在 `tests/test_idempotency.py` 中测试）*
-* ✅ **加固的 MQTT 循环与故障安全读取:** 过大(超过 16 KiB)或无法读取的负载、深度嵌套的 JSON 以及任何意外故障,都会在结果主题上得到拒绝回复,绝不会终止循环;`cmd/job` 的回复带有 `"mode": "gate-only"`,通过它发出的 ABORT 会说明没有停止任何东西(停止激光的是物理急停);状态带有 `observed_at`,桥接在带遗嘱(Last Will)的 `availability` 主题上宣告自己;读取 GPIO 线路时的任何异常——不只是 `OSError`——都会使三个保护装置全部判为失败,三个电平在锁的保护下一次操作读出;能理解 `Hold:0`、`Alarm:1`、`Door:1`、`Jog`、`Home` 等 GRBL 风格的控制器状态。*(已实现,在 `tests/test_hardening.py` 中测试)*
+## 🧩 在 HYDRA-UMC 中的角色
 
----
+**HYDRA-UMC-BRIDGE-LASER** 让机器人单元在激光切割机或雕刻机周围作业，却永远无法使激光待发或发射。它通过 GPIO 读取三个独立的安全装置（钥匙开关、机罩、联锁）以及 GRBL 激光控制器的状态，只有每个安全装置都显示安全的单元才会得到作业。
 
-## 2. 🔄 单元协调流程
+所有桥接都遵循 `HYDRA-UMC-SDK` 的共同安全契约：只有共用的 `evaluate_job()` 关口放行，任务才会被接受，而该关口在失败时保持关闭。父项目是 `HYDRA-UMC-SERVER`；本桥接不调用它，而是通过 `HYDRA-UMC-MQTT-BROKER` 以 MQTT 回应指挥该单元的一方。
+
+## 🏛️ 架构
+
+<p align="center">
+  <img src="images/architecture.svg" alt="HYDRA-UMC-BRIDGE-LASER architecture" width="100%">
+</p>
+
+<details>
+<summary>图表的文本版本（Mermaid）</summary>
 
 ```mermaid
 flowchart LR
@@ -84,9 +85,9 @@ flowchart LR
     SDK -- GateDecision --> RESULT["MQTT: cmd/job/result"]
 ```
 
----
+</details>
 
-## 3. 🧱 架构与设计决策
+**为什么这样构建**
 
 * **为什么用三个独立的安全防护,而不是一个布尔值。** `LaserSafetySnapshot.machine_state()` 将 `key_enabled`、`enclosure_closed` 和 `interlock_healthy` 作为三个独立条件分别检查——真实的激光安全要求每一项物理防护都独立成立;把它们压缩成一个标志会掩盖到底是哪一项失效了。
 * **为什么桥接会明确声明它绝不能为激光解锁或触发。** `LaserCellBridge` 自身的文档字符串写明它"只协调外部辅助设备;不能为激光解锁或触发"——这些条件是对控制器自身已认证联锁装置的观测,绝不是它们的替代品。
@@ -97,64 +98,105 @@ flowchart LR
 
 这个观测辅助工具是证据规范化器,而不是激光控制器适配器:它不会打开任何网络或串口连接,不会更改设置、上传任务、进行武装或触发出光。[Laser Controller Evidence Boundary](docs/CONTROLLER_EVIDENCE_BOUNDARY.md) 定义了进行真实集成之前所需的验证。
 
----
+## ✨ 功能
 
-## 📂 目录结构
+* ✅ **四信号安全快照(软件逻辑,未接激光器即完成测试):** `cell.py` 中的 `LaserSafetySnapshot.machine_state()` 要求钥匙开关启用、防护罩关闭**且**联锁状态健康这三者同时成立;只要缺少任何一项,甚至在读取 `controller_state` 之前就会解析为 `SAFE_STOP`。*(已实现,并在 `tests/test_cell.py` 中测试)*
+* ✅ **真实的共享安全门控:** 每个被观察到的任务都会通过 `HYDRA-UMC-SDK` 的 `bridge_contract` 中的 `evaluate_job()` 重新评估,这与所有兄弟桥接使用的是同一个门控。*(已实现)*
+* ✅ **保守的状态映射:** 只有 `IDLE` 被视为空闲;`RUN`/`RUNNING`/`PAUSED` 映射为 `RUNNING`,`FAULT`/`ALARM`/`ERROR` 映射为 `FAULT`,任何无法识别的值都会回落到 `OFFLINE`。*(已实现)*
+* ✅ **只读安全证据:** `observation.py` 只接受钥匙、防护罩和联锁的真实布尔信号;缺失、数值型或文本型的值都会安全失效关闭。它既不能使激光武装,也不能触发激光。*(已实现,在 `tests/test_observation.py` 中测试)*
+* ✅ **与控制器无关的 GPIO 联锁读取(仅针对模拟芯片测试):** `gpio_safety.py` 的 `GpioSafetyProbe` 从 GPIO 线路(libgpiod v2;测试使用模拟芯片)读取这 3 项独立防护,而不是依赖保存的映射——刻意做到与控制器无关,因为钥匙开关/门传感器/联锁继电器在各品牌激光切割机上都是通用的。GPIO 读取失败会使这 3 项防护全部安全失效关闭。*(已实现,在 `tests/test_gpio_safety.py` 中测试)*
+* ✅ **边沿触发的联锁监控(仅针对模拟芯片测试):** `open_gpio_safety()` 只打开一次钥匙、防护罩和联锁这几条线(`INPUT`、`Edge.BOTH`),并用这唯一的请求同时服务电平读取器和边沿监视器——内核会拒绝对同一批线路的第二次请求。`watch_for_interlock_edges()` 阻塞等待内核自身的边沿事件通知(libgpiod v2),而不是仅在无关的 MQTT 消息提出请求时才重新读取电平;`run_forever(edge_watcher=...)` 会启动一个守护线程,在线路发生跳变的瞬间发布更新后的保留 `state`;若监视器失败,它会发布一个故障安全的 `state`(`SAFE_STOP`,附带原因)并继续重试。每条线的接线都需要声明(`GpioLineSettings`:`active_low`、`bias`——默认值会让断线被读为不安全——以及 `debounce_ms`);参见 `docs/WIRING_GUIDE.md`。尚未在真实 GPIO 芯片上验证。*(已实现,在 `tests/test_gpio_safety.py` 以及使用模拟 `gpiod` 的 `tests/test_hardening.py` 中测试)*
+* ✅ **安全事件流(使用模拟线路和模拟边沿监视器测试):** `events.py` 把钥匙、机箱和互锁的每一次变化转成带时间戳的记录,发布到 `hydra/bridges/laser/event/safety`(数据湖用于审计和 OEE 的日志);当单元由安全变为不安全时,仅一次发布 `hydra/bridges/laser/event/interlock_open` 事件,列出已打开的保护,以便编排器立即停止单元的机械臂。两者均为 QoS 1 且从不保留;都带有 `at_ms` 和递增的 `sequence`;第一次读取只作为基准;边沿监视器失败时,该丢失同样作为互锁打开上报。该 bridge 只做上报:它无法停止激光器。*(已实现,在 `tests/test_events.py` 中测试)*
+* ✅ **可选的辅助保护(使用模拟输入测试):** `auxiliary.py` 允许单元声明额外条件 —— 排烟运行中、辅助气开启、CO2 激光管温度不超过某一限值 —— 以 `AuxiliaryCheck` 传给 `LaserMqttBridge(auxiliary=...)`。只要有一项未满足,除 ABORT 之外的作业都会被拒绝,并指明失败的检查;无法读取、非数值或非有限的读数视为未满足;`state` 带有 `auxiliary` 映射。未声明时一切不变。只读:不切换任何东西。*(已实现,在 `tests/test_auxiliary.py` 中测试)*
+* ✅ **非变更式构建/测试:** `build-test.bat`/`.sh` 编译源码并运行安全门控测试套件,不会触碰版本文件或 CHANGELOG。*(已实现,见下方"构建与发布")*
+* ✅ **GRBL 激光状态读取器(仅针对模拟板卡测试):** `grbl_state.py` 的 `GrblLaserState` 是串口上 GRBL 系列激光控制器(LaserGRBL 和 LightBurn 驱动的那类板卡)的真实 `controller_state`:它发送 GRBL 的状态查询 `?`,并返回报告中的状态词。它刻意只读——唯一写出的字节是 `?`,没有暂停、复位、恢复或 G 代码——并且失效即关闭(没有应答就是空状态,绝不是空闲)。串口、可重连的连接和解析器是 CNC 桥接也使用的 SDK 共享串口连接。报告中的激光功率和进给作为信息放入 `state`(`laser_power`、`feed_rate`),绝不作为安全保护。GRBL 板卡只有一个串口:LightBurn 或 LaserGRBL 占用它时,此读取器无法使用。*(已实现,尚未在真实板卡上试过)*
+* 🔜 **具体的激光控制器/软件集成** —— 刻意推迟,直到设备及其文档化接口就绪。*(计划中)*
+* ✅ **重复的幂等键：** `LaserMqttBridge` 接受 `IdempotencyStore`：重复的作业键会得到第一次给出的答复，而不是被重新评估。*（已实现，已在 `tests/test_idempotency.py` 中测试）*
+* ✅ **加固的 MQTT 循环与故障安全读取:** 过大(超过 16 KiB)或无法读取的负载、深度嵌套的 JSON 以及任何意外故障,都会在结果主题上得到拒绝回复,绝不会终止循环;`cmd/job` 的回复带有 `"mode": "gate-only"`,通过它发出的 ABORT 会说明没有停止任何东西(停止激光的是物理急停);状态带有 `observed_at`,桥接在带遗嘱(Last Will)的 `availability` 主题上宣告自己;读取 GPIO 线路时的任何异常——不只是 `OSError`——都会使三个保护装置全部判为失败,三个电平在锁的保护下一次操作读出;能理解 `Hold:0`、`Alarm:1`、`Door:1`、`Jog`、`Home` 等 GRBL 风格的控制器状态。*(已实现,在 `tests/test_hardening.py` 中测试)*
 
-```text
-HYDRA-UMC-BRIDGE-LASER/
-├── src/
-│   └── hydra_umc_bridge_laser/
-│       ├── __init__.py
-│       ├── cell.py              # LaserSafetySnapshot + LaserCellBridge 安全门控
-│       ├── auxiliary.py       # extraction / assist air / tube temperature checks
-│       ├── events.py          # interlock_open + safeguard-change events
-│       ├── observation.py       # 只读的安全证据归一化
-│       ├── grbl_state.py       # GRBL 激光控制器的只读状态:只有状态查询,别无其他
-│       ├── gpio_safety.py       # 通过 GPIO 读取 3 个真实的独立安全信号 - 绝非激光命令
-│       └── mqtt_transport.py    # 真实 MQTT broker 传输 - 仅状态/证据,此 bridge 无法启动或触发激光
-├── tests/
-│   ├── test_cell.py             # 安全空闲准入、防护罩拒绝、中止转发
-│   ├── test_observation.py      # 缺失安全证据时 fail-closed 失败
-│   ├── test_gpio_safety.py      # 针对模拟芯片的真实 GPIO 安全读取测试,含 fail-closed 路径
-│   ├── test_mqtt_transport.py   # 针对模拟 broker 客户端的 MQTT 状态/证据格式测试
-│   ├── test_mqtt_environment.py # 服务环境中的 MQTT 凭据和 TLS 会传到客户端
-│   ├── test_grbl_state.py       # 针对模拟板卡的 GRBL 读取器:横幅和过期行、断开的链路、重新插拔、无应答的板卡
-│   ├── test_idempotency.py      # 重复的幂等键只处理一次
-│   ├── gpio_mqtt_emulator.py    # 协议忠实的 GPIO/MQTT 模拟器（真实的测试替身）
-│   ├── test_gpio_mqtt_emulator.py # 针对 GPIO/MQTT 模拟器的 bridge 行为
-│   ├── test_hardening.py        # 恶意负载、模拟 gpiod 的单一请求、监视器失败、诚实的回复
-│   ├── test_edge_cases.py       # 保护装置读取、监视器故障路径和载荷边界情况
-│   ├── test_auxiliary.py        # 辅助保护装置测试
-│   └── test_events.py           # 安全事件流测试
-├── tools/
-│   ├── build_test.py            # 非变更式编译 + 测试运行器 (build-test.bat/.sh)
-│   ├── bump_version.py          # 同步 pyproject.toml、清单和 CHANGELOG.md
-│   ├── ci_validate.py           # 无依赖、非破坏性的CI基线检查 (由 .github/workflows/ci.yml 使用)
-│   ├── inspect_controller_evidence.py # 规范化已保存的本地证据 JSON 文件（不打开任何连接）
-│   ├── _doc_policy.py                 # 家族共享的文档规则 (HYDRA-UMC-SDK 的副本,保持同步)
-│   ├── _readme_parity.py              # 检查八个 README 结构一致 (HYDRA-UMC-SDK 的副本,保持同步)
-│   ├── hydra_project_tool.py          # 每个仓库相同的命令: validate、test、ci、version、status、bump
-│   └── extra_build_steps.py           # 除共享构建测试外,本仓库自己的构建步骤 (自带的单元测试)
-├── docs/
-│   ├── BRIDGE_GUIDE.md                    # 范围、兼容平台、脚本、硬件验收门控
-│   ├── CONTROLLER_EVIDENCE_BOUNDARY.md    # 什么算作真实安全证据,以及此 bridge 拒绝推断的内容
-│   └── WIRING_GUIDE.md                    # 三个保护装置的接线:极性、常闭触点、偏置、消抖
-├── images/
-│   └── HYDRA_UMC_BANNER.svg     # README 横幅图
-├── build-test.bat / build-test.sh  # 仅验证,绝不修改仓库
-├── build.bat / build.sh            # 先验证,成功后才更新版本 + CHANGELOG
-├── pyproject.toml               # 包元数据;依赖 HYDRA-UMC-SDK (git)
-├── hydra-umc.project.json       # 生态系统清单(版本、成熟度、家族)
-├── CHANGELOG.md
-├── CODE_OF_CONDUCT.md / CONTRIBUTING.md / SECURITY.md / SUPPORT.md
-├── LICENSE / LICENSE.md
-└── README.md / README_*.md      # 本文件及其 6 种译文
+## 🔒 安全与防护
+
+| 威胁 | 防御 | 位置 |
+|---|---|---|
+| 对处于不安全状态的单元或机器下达任务 | 每个任务都经过 SDK 共用的 `evaluate_job()` 关口，该关口失败时保持关闭；桥接本身没有接受/拒绝逻辑 | SDK `bridge_contract` |
+| 过大的任务数据 | 最多 32 个参数，键最长 64 个字符，值最长 1024，标识符最长 128（`MAX_PARAMETERS`、`MAX_PARAMETER_KEY_CHARS`、`MAX_PARAMETER_VALUE_CHARS`、`MAX_IDENTIFIER_CHARS`） | SDK `bridge_contract` |
+| 重复或重放的命令 | `IdempotencyStore` 将每个键记住 24 小时、最多 10 000 条；重复请求得到第一次的答复而不是重新评估 | SDK `job_intake` |
+| 巨大或恶意的 MQTT 负载 | 超过 16 KiB 的负载、不可读或嵌套过深的 JSON 以及任何意外故障，都会在结果主题上得到拒绝答复，且不会终止循环 | `mqtt_transport.py` |
+| 激光被误置于待发状态 | 三个独立的安全装置（`key_enabled`、`enclosure_closed`、`interlock_healthy`）必须全部显示安全；只有控制器状态恰为 `IDLE` 才算空闲，其他一律为 `OFFLINE` | `cell.py`, `events.py` |
+| 被剪断的联锁线 | 默认偏置使断线被读为不安全（低电平有效用上拉，高电平有效用下拉），触点抖动默认忽略 10 ms，三条线互不相同 | `gpio_safety.py` |
+| GPIO 读取失败 | 保留的 `state` 会带着原因变为失败即关闭（所有安全装置均未满足，`SAFE_STOP`），避免有人继续读取旧的良好状态 | `mqtt_transport.py` |
+| 重连时被重放的保留命令 | 保留的 `cmd/` 消息在重连时被忽略 | `mqtt_transport.py` |
+
+**它绝不做的事：** 它只协调外部辅助设备：不能使激光待发或发射，对 GRBL 控制器也只发送状态查询。
+
+## 🔌 接口
+
+位于 `hydra/bridges/laser/` 下的主题；没有停止动词（`STOP_VERBS` 为空）。
+
+| 主题或路由 | 内容 |
+|---|---|
+| `cmd/status` | 空负载：重新读取三条 GPIO 线并发布状态 |
+| `cmd/job` → `cmd/job/result` | JSON 格式的 `BridgeJob`；只做规划，答复是 `GateDecision` |
+| `state`, `availability` | 带时间戳的保留快照，以及 `online`/`offline` |
+| `event/safety`, `event/interlock_open` | 安全装置变化时的 QoS 1 事件，不保留 |
+
+库：`LaserCellBridge`、`LaserSafetySnapshot`、`LaserMqttBridge`、`GpioSafetyProbe`、`open_gpio_safety()`、`GrblLaserState`、`open_grbl_laser_state()` 和 `AuxiliarySupervisor`（排烟、辅助气、CO2 管温度）。
+
+## ⚙️ 配置
+
+| 变量 | 默认值 | 设置内容 |
+|---|---|---|
+| `GpioLineSettings.active_low` | 必填 | 信号在逻辑 0 时为安全则取 `True`（接地的常闭触点） |
+| `GpioLineSettings.bias` | 故障安全 | `pull-up`、`pull-down`、`disabled` 或 `as-is`；未设置时选择使断线被读为不安全的那种 |
+| `GpioLineSettings.debounce_ms` | `10.0` | 在此时间内忽略触点抖动；`0` 关闭，负值被拒绝 |
+| `HYDRA_MQTT_USERNAME` | 无 | MQTT 用户名；代理将其绑定到客户端 ID 前缀 |
+| `HYDRA_MQTT_PASSWORD` | 无 | 密码；只能与用户名一起使用 |
+| `HYDRA_MQTT_PASSWORD_FILE` | 无 | 从文件读取的密码（Docker 或 systemd 机密）；设置了 `HYDRA_MQTT_PASSWORD` 时忽略 |
+| `HYDRA_MQTT_TLS_CA` | 无 | 签署代理证书的 CA 文件：连接使用 TLS 并验证证书 |
+| `HYDRA_MQTT_TLS` | 关闭 | `1` 启用 TLS，并用系统信任的 CA 验证 |
+| `HYDRA_MQTT_TLS_CERT` / `HYDRA_MQTT_TLS_KEY` | 无 | 用于要求双向 TLS 的代理的客户端证书及其密钥；两者都需要 |
+
+三条 GPIO 线的偏移和芯片是 `open_gpio_safety()` 的参数；GRBL 控制器的串口设备是 `open_grbl_laser_state()` 的参数（默认 115200 波特，超时 1 秒）。
+
+## 🚀 快速开始
+
+需要 Python 3.11 或更高版本。测试和构建脚本期望 `HYDRA-UMC-SDK` 位于本仓库旁边（`../HYDRA-UMC-SDK`），或由 `HYDRA_UMC_SDK_ROOT` 指定。
+
+无需硬件即可试用（用模拟器和替身检查整个桥接）：
+
+```bash
+py -3 tools/build_test.py          # Windows
+python3 tools/build_test.py         # Linux, macOS
 ```
 
----
+启动服务（没有控制台脚本：服务就是 MQTT 传输的 `run_forever()`，由你自己的启动代码调用）：
 
-## 4. ⚙️ 构建与运行
+```python
+from hydra_umc_bridge_laser.gpio_safety import GpioLineSettings, open_gpio_safety
+from hydra_umc_bridge_laser.grbl_state import open_grbl_laser_state
+from hydra_umc_bridge_laser.mqtt_transport import LaserMqttBridge, run_forever
+wiring = GpioLineSettings(active_low=True)                       # normally-closed contacts to ground
+safety = open_gpio_safety("/dev/gpiochip0", 17, 27, 22, key=wiring, enclosure=wiring, interlock=wiring)
+bridge = LaserMqttBridge(safety.lines, controller_state=open_grbl_laser_state("/dev/ttyUSB0"), cell_state=lambda: cell_state)
+run_forever(bridge, host="192.168.0.180", edge_watcher=safety.watcher)   # serves cmd/# and publishes the events
+```
+
+用户名、密码和 TLS 文件来自 `HYDRA_MQTT_*` 变量（见“配置”）；上面的代码本身不需要凭据。
+
+## 🧪 测试
+
+运行 `python tools/build_test.py` 会执行 149 个自动 `unittest` 用例（同时编译每个模块）。测试不需要硬件、网络或可选软件包：需要 `paho-mqtt`、`pyserial` 或厂商库的用例使用替身，缺少软件包时则跳过。
+
+| 测试文件 | 测试数 | 覆盖内容 |
+|---|---|---|
+| `test_cell.py`, `test_observation.py`, `test_events.py`, `test_auxiliary.py` | - | 安全装置、证据、事件和辅助检查 |
+| `test_gpio_safety.py`, `test_gpio_mqtt_emulator.py`, `gpio_mqtt_emulator.py` | - | 针对假线路的 GPIO 读取器；真实桥接对 GPIO 与 MQTT 夹具 |
+| `test_grbl_state.py` | - | GRBL 读取器对以 GRBL 方式应答的内存控制器（横幅、`ok`、过期答复） |
+| `test_mqtt_transport.py`, `test_mqtt_environment.py`, `test_hardening.py`, `test_edge_cases.py`, `test_idempotency.py` | - | 主题分发、环境凭据、恶意客户端、异常读数和重复键 |
+
+CI 运行 `HYDRA_UMC_CI=1 python tools/ci_validate.py`，检查清单、文档、八个 README 和图片，并使用 SDK 副本运行测试。
+
+## 🏗️ 构建与发布
 
 需要 Python 3.11+。`tools/build_test.py` 期望 `HYDRA-UMC-SDK` 作为兄弟目录被检出(`../HYDRA-UMC-SDK`),或通过环境变量 `HYDRA_UMC_SDK_ROOT` 指定。
 
@@ -170,9 +212,56 @@ bash build.sh
 
 `build-test` 使用 `py_compile` 编译 `src/`和`tools/` 下的每个模块,并运行在 `tests/` 下发现的完整 `unittest` 套件(`test_cell.py`、`test_observation.py`、`test_gpio_safety.py`、`test_mqtt_transport.py`、`test_gpio_mqtt_emulator.py`、`test_hardening.py`、`test_idempotency.py`、`test_mqtt_environment.py`——共 149 个测试),证明安全空闲准入、防护罩拒绝和中止转发等均按预期工作 —— 它绝不会修改仓库。`build` 会先运行同样的验证,只有成功后才调用 `tools/bump_version.py`,在 `pyproject.toml`、`hydra-umc.project.json` 和 `CHANGELOG.md` 之间同步版本号。目前尚无真正的激光 `run` 命令 —— 这需要经过验证且安全的控制器集成。
 
----
+## 🩺 故障排除
 
-## ✅ 当前状态与后续步骤
+| 你看到 | 原因 | 处理 |
+|---|---|---|
+| `ModuleNotFoundError: hydra_umc_sdk` | 未安装 SDK，且不在本仓库旁边 | 把 `HYDRA-UMC-SDK` 克隆到本仓库旁边，或设置 `HYDRA_UMC_SDK_ROOT` |
+| `paho-mqtt is not installed` | MQTT 客户端是可选附加包 | `pip install ".[mqtt]"`（需要 `paho-mqtt` 2.1 或更高，低于 3） |
+| `password was given without a username` | MQTT 凭据需要两部分 | 除密码外还要设置 `HYDRA_MQTT_USERNAME` |
+| `could not reach the MQTT broker after N attempts` | 代理未运行、地址错误或端口已关闭 | 启动 `HYDRA-UMC-MQTT-BROKER`，检查传给传输层的主机和端口（每隔 2 秒试 5 次；TLS 握手失败不会重试） |
+| `the MQTT broker refused the connection` | 代理拒绝了凭据（或未在时限内应答） | 检查 `HYDRA_MQTT_USERNAME` 和密码；客户端 ID 必须以代理绑定到该凭据的前缀开头 |
+| `state` with every safeguard unsatisfied and `SAFE_STOP` | GPIO 读取失败（缺芯片、权限、请求已释放）或边沿监视器已停止 | 查看保留的 `state` 中的原因；检查芯片路径、线偏移和运行服务的用户权限 |
+| `"allowed": false` + `reason` | 共用关口或某项保护拒绝了命令 | 阅读 `reason` 并排除原因；不要盲目重试 |
+
+## 📂 仓库结构
+
+<p align="center">
+  <img src="images/repository-structure.svg" alt="Repository structure of HYDRA-UMC-BRIDGE-LASER" width="100%">
+</p>
+
+<details>
+<summary>目录树的文本版本</summary>
+
+```text
+HYDRA-UMC-BRIDGE-LASER/
+├── src/hydra_umc_bridge_laser/
+│   ├── cell.py                    除非安全装置报告安全空闲，否则拒绝作业
+│   ├── gpio_safety.py             通过 GPIO（libgpiod）读取三条安全线
+│   ├── grbl_state.py              GRBL 控制器状态；只做状态查询
+│   ├── observation.py             本地安全证据，绝不是激光命令
+│   ├── events.py                  安全装置变化时生成带时间戳的事件
+│   ├── auxiliary.py               排烟、辅助气和管温检查
+│   └── mqtt_transport.py          MQTT 命令、状态与事件传输
+├── tests/                         149 项测试（含 GPIO 与 MQTT 模拟器）
+├── docs/                          桥接指南、证据边界、接线指南
+├── tools/                         构建与测试运行器、版本提升、CI 校验、README 与图片的生成和检查
+├── images/                        横幅图与 README 的图片
+├── .github/                       CI 工作流和 Issue 模板
+├── pyproject.toml                 包元数据与依赖
+├── hydra-umc.project.json         清单：版本、成熟度、系列
+├── CHANGELOG.md                   每个版本的变化
+├── build.sh build.bat             构建脚本（从不改变版本）
+├── build-test.sh build-test.bat   构建脚本（从不改变版本）
+├── test.sh test.bat               运行测试
+└── SECURITY.md SUPPORT.md CONTRIBUTING.md CODE_OF_CONDUCT.md LICENSE LICENSE.md
+```
+
+</details>
+
+## 🗺️ 路线图与已知限制
+
+**当前已知限制**
 
 **目前真实的部分:** 版本 `0.1.8`,一个已在本地测试过的故障安全规划核心(`LaserSafetySnapshot` + `LaserCellBridge`),依托 `HYDRA-UMC-SDK` 的共享任务门控,包含严格的只读安全证据标准化,能区分真正暂停的任务(`HOLDING`)与真正正在切割的任务(`RUNNING`),一个真实的、与控制器无关的 GPIO 联锁读取(`GpioSafetyProbe`),覆盖钥匙/外壳/联锁这 3 项独立防护,一个真实的 MQTT 状态/证据传输(`mqtt_transport.py`),配有确定性的149项 `unittest` 测试套件,以及已接入 CI 并带 SDK 检出的非变更式 build-test 脚本。
 
@@ -180,7 +269,9 @@ bash build.sh
 
 **仍待完成:** 本桥接尚未连接或用于操作真实的激光系统 —— 选择并验证具体的控制器/软件接口被推迟到设备及其文档化接口就绪之后。
 
----
+## 🌍 语言
+
+本 README 和仓库文档提供八种语言：英语、西班牙语、德语、法语、意大利语、日语、中文和葡萄牙语（葡萄牙）。它们同时编写，并由 CI 检查八个文件拥有相同的章节和相同的链接。 本仓库没有自己的界面或消息目录，因此没有需要翻译的界面文字。
 
 ## 🔗 相关项目
 
@@ -275,20 +366,29 @@ bash build.sh
 - **[HYDRA-UMC-OPS-AGENT](https://github.com/JuanenRac/HYDRA-UMC-OPS-AGENT)** — 维护事件协调器：一个低权限的边缘角色采集经过脱敏的库存/健康快照，一个控制面角色以只读方式渲染它，并请求某个 AI 提供方给出诊断建议——从不应用补丁，也从不部署任何内容。
 - **[HYDRA-UMC-DEV-SERVER](https://github.com/JuanenRac/HYDRA-UMC-DEV-SERVER)** — 可复现的开发主机（Raspberry Pi 5 / CM5），保存整个生态系统的源代码，并在持久队列下运行有界的构建/测试任务；这是专用的开发角色，明确区别于运行中的 CM5。
 
----
+## 📚 文档
 
-## 📚 文档与社区
+更多阅读：
 
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** —— 提交 Pull Request 所需的技术栈和编码规范。
-- **[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)** —— 本社区所期望的行为准则。
-- **[SECURITY.md](SECURITY.md)** —— 如何报告漏洞，以及本项目真实的安全关注重点。
-- **[SUPPORT.md](SUPPORT.md)** —— 在哪里提问和报告缺陷。
-- **[LICENSE.md](LICENSE.md)** —— 本项目自身的许可证。
+* [docs/BRIDGE_GUIDE.md](docs/BRIDGE_GUIDE.md) - 范围、GPIO 接线设置、GRBL 读取器、脚本
+* [docs/WIRING_GUIDE.md](docs/WIRING_GUIDE.md) - 三个安全信号如何接线
+* [docs/CONTROLLER_EVIDENCE_BOUNDARY.md](docs/CONTROLLER_EVIDENCE_BOUNDARY.md) - 什么算真实的安全证据
+* [生态系统的安全基线](https://github.com/JuanenRac/HYDRA-UMC-DOCS/blob/main/docs/SECURITY_BASELINE.md)
+* [生态系统的威胁模型](https://github.com/JuanenRac/HYDRA-UMC-DOCS/blob/main/docs/THREAT_MODEL.md)
+* [本仓库的更新日志](CHANGELOG.md)
+* [本仓库的许可证](LICENSE.md)
+
+## 🤝 参与贡献与社区
+
+* 提交 pull request 之前，请运行 `HYDRA_UMC_CI=1 py -3 tools/ci_validate.py`（或 `HYDRA_UMC_CI=1 python3 tools/ci_validate.py`）：它必须输出 `CI_VALIDATION=PASS`。此检查不要运行 `build.sh` 或 `build.bat`；构建不是检查。
+* 八个 README 由 HYDRA-UMC-DOCS 中的同一个源生成；请勿手工编辑。修改源文件，再用 `tools/make_readmes.py` 重新生成。
+* 不要在 README 中声称尚未运行过的内容：属实时请写“仅模拟”或“尚未在硬件上试过”。
+* 请参阅 [CONTRIBUTING.md](CONTRIBUTING.md)、[行为准则](CODE_OF_CONDUCT.md)、[SECURITY.md](SECURITY.md) 和 [SUPPORT.md](SUPPORT.md)。
 
 ## 👤 作者
-**JuanenRac** (Electro Hobby 3D)
-📧 electrohobby3d@gmail.com
-📺 [youtube.com/@electrohobby3d](https://youtube.com/@electrohobby3d)
+
+**JuanenRac (Electro Hobby 3D)** · electrohobby3d@gmail.com
 
 ## 📜 许可证
-GPL-3.0-or-later - 详见 LICENSE。
+
+GPL-3.0-or-later - [LICENSE](LICENSE).
