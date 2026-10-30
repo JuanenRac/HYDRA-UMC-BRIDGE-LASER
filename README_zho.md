@@ -248,6 +248,7 @@ HYDRA-UMC-BRIDGE-LASER/
 │   ├── auxiliary.py               排烟、辅助气和管温检查
 │   └── mqtt_transport.py          MQTT 命令、状态与事件传输
 ├── tests/                         149 项测试（含 GPIO 与 MQTT 模拟器）
+├── deploy/                        systemd 单元和示例配置
 ├── docs/                          桥接指南、证据边界、接线指南
 ├── tools/                         构建与测试运行器、版本提升、CI 校验、README 与图片的生成和检查
 ├── images/                        横幅图与 README 的图片

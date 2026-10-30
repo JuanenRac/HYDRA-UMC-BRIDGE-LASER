@@ -248,6 +248,7 @@ HYDRA-UMC-BRIDGE-LASER/
 │   ├── auxiliary.py               controlli di aspirazione fumi, aria di assistenza e temperatura del tubo
 │   └── mqtt_transport.py          trasporto MQTT di comandi, stato ed eventi
 ├── tests/                         149 test, con un emulatore GPIO e MQTT
+├── deploy/                        unità systemd e configurazione di esempio
 ├── docs/                          guida del bridge, limite delle prove, guida al cablaggio
 ├── tools/                         esecutore di build e test, aumento di versione, validatore CI, generatori e controlli di README e immagini
 ├── images/                        banner e immagini del README

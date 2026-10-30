@@ -248,6 +248,7 @@ HYDRA-UMC-BRIDGE-LASER/
 │   ├── auxiliary.py               排煙・アシストエア・チューブ温度の確認
 │   └── mqtt_transport.py          MQTT のコマンド・状態・イベントのトランスポート
 ├── tests/                         149 件（GPIO と MQTT のエミュレーター付き）
+├── deploy/                        systemd ユニットと設定例
 ├── docs/                          ブリッジガイド、証拠の境界、配線ガイド
 ├── tools/                         ビルド・テスト実行、バージョン引き上げ、CI 検証、README と図の生成・検査
 ├── images/                        バナーと README の図
