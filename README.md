@@ -98,6 +98,8 @@ flowchart LR
 
 The observation helper is an evidence normalizer, not a laser-controller adapter: it does not open a network or serial link, alter settings, upload jobs, arm or fire. [Laser Controller Evidence Boundary](docs/CONTROLLER_EVIDENCE_BOUNDARY.md) defines the validation required before a real integration.
 
+**Running as a service.** `python -m hydra_umc_bridge_laser --config /etc/hydra-umc/bridge-laser.toml` starts the bridge from one TOML file: the GPIO chip and the three safeguard lines (line, `active_low`, bias, debounce), the serial port of the GRBL controller, the MQTT broker, the source of the cell state and the optional auxiliary safeguards. A key it does not know is refused, the polarity of a line has no default, and everything fails closed: no controller reads OFFLINE and a cell-state file that is missing, unknown or stale is `SAFE_STOP`. `--check` validates the file; `deploy/` holds the systemd unit (`Restart=on-failure`) and an example file. It has run against simulated GPIO and a simulated controller, not on a real cell.
+
 ## ✨ Features
 
 * ✅ **Four-signal safety snapshot (software logic, tested without a laser):** `cell.py`'s `LaserSafetySnapshot.machine_state()` requires the key switch enabled, the enclosure closed **and** the interlock healthy simultaneously — any one missing resolves to `SAFE_STOP`, before `controller_state` is even read. *(implemented, tested in `tests/test_cell.py`)*

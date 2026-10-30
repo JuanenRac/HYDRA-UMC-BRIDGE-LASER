@@ -1,0 +1,61 @@
+# =============================================================================
+# HYDRA-UMC-BRIDGE-LASER - Example configuration (copy to /etc/hydra-umc/bridge-laser.toml)
+# Copyright (C) 2026 JuanenRac (Electro Hobby 3D) <electrohobby3d@gmail.com>
+# GPL-3.0-or-later - see LICENSE
+# =============================================================================
+# Every value that depends on the machine lives here. The MQTT user, password and TLS are NOT here:
+# they come from the HYDRA_MQTT_* variables of /etc/hydra-umc/bridge-laser.env (see the systemd unit).
+
+[mqtt]
+host = "127.0.0.1"
+port = 1883
+client_id = "hydra-umc-bridge-laser"
+
+# The three independent safeguards. The polarity has no default: write what your wiring does.
+[gpio]
+chip = "/dev/gpiochip0"
+edge_watch = true            # publish the state the instant a line changes
+
+[gpio.key]
+line = 17
+active_low = true            # normally-closed contact to ground: safe at logic 0
+debounce_ms = 10
+
+[gpio.enclosure]
+line = 27
+active_low = true
+debounce_ms = 10
+
+[gpio.interlock]
+line = 22
+active_low = true
+debounce_ms = 10
+
+# The GRBL laser controller. Leave the section out and the controller state is "" (OFFLINE, fail-closed).
+[controller]
+device = "/dev/ttyUSB0"      # a port name or a stable USB serial number
+baud = 115200
+timeout_seconds = 1.0
+
+# Where the state of the cell (READY, INHIBITED, FAULT, SAFE_STOP) comes from.
+#   fixed: always "value" (the default is INHIBITED: nothing gets work)
+#   file:  the first word of "path"; a missing, unknown or older-than-max_age_seconds file is SAFE_STOP
+[cell_state]
+source = "file"
+path = "/run/hydra-umc/cell_state"
+max_age_seconds = 30
+
+# Optional extra conditions; each reads a small file kept up to date by whoever measures it.
+# A file with "1" is satisfied; with max_celsius the file holds a temperature in degrees Celsius.
+# [[auxiliary]]
+# name = "extraction"
+# path = "/run/hydra-umc/laser_extraction"
+#
+# [[auxiliary]]
+# name = "tube_temperature"
+# path = "/run/hydra-umc/laser_tube_celsius"
+# max_celsius = 30.0
+
+# Keep the idempotency keys in a file so that a restarted bridge refuses a job it already handled.
+[idempotency]
+path = "/var/lib/hydra-umc-bridge-laser/idempotency.sqlite"

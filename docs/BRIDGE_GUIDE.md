@@ -54,3 +54,15 @@ The first reading only sets the baseline. A watcher that fails is reported as th
 ## Auxiliary safeguards
 
 `auxiliary.py` reads optional extra conditions (fume extraction, assist air, CO2 tube temperature with a `max_celsius` limit). Pass `AuxiliarySupervisor([AuxiliaryCheck(...)])` as `LaserMqttBridge(auxiliary=...)`: `cmd/job` refuses any job except ABORT while a check is not satisfied and names it, and `state` carries an `auxiliary` map. A reading that fails, is not a real number or is not a bool where a level is expected counts as not satisfied.
+
+## Running as a service
+
+`python -m hydra_umc_bridge_laser --config /etc/hydra-umc/bridge-laser.toml` (the path can also come from `HYDRA_UMC_BRIDGE_LASER_CONFIG`) starts the bridge. Nothing that depends on the machine is in the code: the file `deploy/bridge-laser.example.toml` shows every key.
+
+- `[gpio]`: the chip, whether to watch edges, and one table per safeguard (`key`, `enclosure`, `interlock`) with its `line`, `active_low`, `bias` and `debounce_ms`. The polarity (`active_low`) has no default: the safe level depends on the wiring. The three lines must differ.
+- `[controller]`: the serial `device` (a port name or a stable USB serial number), `baud` and `timeout_seconds`. Without the section the controller state is empty and the bridge reads OFFLINE.
+- `[cell_state]`: `source = "fixed"` (the default, `INHIBITED`, so nothing gets work) or `"file"`: the first word of `path`. A file that is missing, unknown or older than `max_age_seconds` is `SAFE_STOP`, so whoever coordinates the cell has to keep writing it.
+- `[[auxiliary]]`: optional extra conditions, each read from a small file (`1` is satisfied; with `max_celsius` the file holds a temperature).
+- `[mqtt]` and `[idempotency]`: the broker and, optionally, a file that keeps the idempotency keys across restarts. The MQTT user, password and TLS are not in the file: they come from `HYDRA_MQTT_*` in the environment of the service.
+
+A key the service does not know is refused and `--check` validates the file without starting anything. `deploy/hydra-umc-bridge-laser.service` is the systemd unit: it checks the file before starting, restarts on failure and allows only the GPIO chip and the serial devices. The service has run against simulated GPIO and a simulated controller; it has not run on a real cell.

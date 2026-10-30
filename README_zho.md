@@ -98,6 +98,8 @@ flowchart LR
 
 这个观测辅助工具是证据规范化器,而不是激光控制器适配器:它不会打开任何网络或串口连接,不会更改设置、上传任务、进行武装或触发出光。[Laser Controller Evidence Boundary](docs/CONTROLLER_EVIDENCE_BOUNDARY.md) 定义了进行真实集成之前所需的验证。
 
+**作为服务运行。** `python -m hydra_umc_bridge_laser --config /etc/hydra-umc/bridge-laser.toml` 从一个 TOML 文件启动桥接：GPIO 芯片和三条安全线路（线路、`active_low`、偏置、消抖）、GRBL 控制器的串口、MQTT 代理、单元状态的来源以及可选的辅助安全装置。未知的键会被拒绝，线路的极性没有默认值，所有情况都失败即关闭：没有控制器时读为 OFFLINE，单元状态文件缺失、未知或过期时为 `SAFE_STOP`。`--check` 校验该文件；`deploy/` 中有 systemd 单元（`Restart=on-failure`）和示例文件。它已针对模拟的 GPIO 和模拟的控制器运行，尚未在真实单元上运行。
+
 ## ✨ 功能
 
 * ✅ **四信号安全快照(软件逻辑,未接激光器即完成测试):** `cell.py` 中的 `LaserSafetySnapshot.machine_state()` 要求钥匙开关启用、防护罩关闭**且**联锁状态健康这三者同时成立;只要缺少任何一项,甚至在读取 `controller_state` 之前就会解析为 `SAFE_STOP`。*(已实现,并在 `tests/test_cell.py` 中测试)*

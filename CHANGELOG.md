@@ -4,6 +4,8 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+- **The bridge runs as a service.** `python -m hydra_umc_bridge_laser --config <file>` (or the `hydra-umc-bridge-laser` command) starts it from one TOML file: the GPIO chip and the three safeguard lines with their polarity, bias and debounce, the serial port of the GRBL controller, the MQTT broker, where the state of the cell comes from and the optional auxiliary safeguards (fume extraction, assist air, tube temperature, each read from a small file). A key it does not know is refused, the polarity of a line has no default, and everything fails closed: a missing controller reads OFFLINE, and a cell-state file that is missing, unknown or stale is SAFE_STOP. `--check` validates the file. `deploy/hydra-umc-bridge-laser.service` is the systemd unit (`Restart=on-failure`, a closed device policy, memory limits) and `deploy/bridge-laser.example.toml` the example file. Covered by `tests/test_service.py` with simulated GPIO and a simulated controller.
+
 - **Jobs go through the shared intake of the SDK:** the check of a malformed job and of a repeated `idempotency_key` is the SDK's `JobIntake` instead of code of this bridge (the keys are no longer prefixed with `job:`).
 
 - **The answers to the commands are published at QoS 1** (the shared dispatcher keeps the QoS a bridge gives an answer), so a result is not lost on a flaky link; the pin of the shared SDK moves to its newest tag.

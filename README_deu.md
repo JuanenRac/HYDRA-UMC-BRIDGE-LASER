@@ -98,6 +98,8 @@ flowchart LR
 
 Der Beobachtungs-Helfer ist ein Evidenz-Normalisierer, kein Laser-Controller-Adapter: er öffnet keine Netzwerk- oder serielle Verbindung, ändert keine Einstellungen, lädt keine Jobs hoch, scharf schaltet oder zündet nicht. [Laser Controller Evidence Boundary](docs/CONTROLLER_EVIDENCE_BOUNDARY.md) definiert die vor einer echten Integration erforderliche Validierung.
 
+**Betrieb als Dienst.** `python -m hydra_umc_bridge_laser --config /etc/hydra-umc/bridge-laser.toml` startet den Bridge aus einer einzigen TOML-Datei: GPIO-Chip und die drei Sicherungsleitungen (Leitung, `active_low`, Vorspannung, Entprellung), die serielle Schnittstelle der GRBL-Steuerung, der MQTT-Broker, die Quelle des Zellenzustands und die optionalen Zusatzsicherungen. Ein unbekannter Schlüssel wird abgelehnt, die Polarität einer Leitung hat keinen Standardwert und alles fällt geschlossen aus: ohne Steuerung gilt OFFLINE, und eine fehlende, unbekannte oder veraltete Zellenzustandsdatei ist `SAFE_STOP`. `--check` prüft die Datei; `deploy/` enthält die systemd-Unit (`Restart=on-failure`) und eine Beispieldatei. Er lief gegen simulierte GPIO und eine simulierte Steuerung, nicht an einer echten Zelle.
+
 ## ✨ Funktionen
 
 * ✅ **Vier-Signal-Sicherheits-Snapshot (Software-Logik, ohne Laser getestet):** `cell.py` — `LaserSafetySnapshot.machine_state()` verlangt, dass der Schlüsselschalter aktiviert, das Gehäuse geschlossen **und** die Verriegelung intakt sind — gleichzeitig; fehlt eines davon, wird auf `SAFE_STOP` aufgelöst, noch bevor `controller_state` überhaupt gelesen wird. *(implementiert, getestet in `tests/test_cell.py`)*

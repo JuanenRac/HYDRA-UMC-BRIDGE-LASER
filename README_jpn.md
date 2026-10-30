@@ -98,6 +98,8 @@ flowchart LR
 
 観測ヘルパーはエビデンスの正規化を行うものであり、レーザーコントローラーアダプターではない——ネットワークやシリアルの接続を開かず、設定を変更せず、ジョブをアップロードせず、アーム(武装)も発振もしない。[Laser Controller Evidence Boundary](docs/CONTROLLER_EVIDENCE_BOUNDARY.md) は、実際の統合の前に必要な検証を定義している。
 
+**サービスとしての実行。** `python -m hydra_umc_bridge_laser --config /etc/hydra-umc/bridge-laser.toml` は、1 つの TOML ファイルからブリッジを起動します。GPIO チップと 3 本の安全ライン（ライン、`active_low`、バイアス、チャタリング除去）、GRBL コントローラーのシリアルポート、MQTT ブローカー、セル状態の取得元、任意の補助安全装置を設定します。未知のキーは拒否され、ラインの極性には既定値がなく、すべて安全側（フェイルクローズ）に倒れます。コントローラーがなければ OFFLINE、セル状態ファイルが無い・不明・古い場合は `SAFE_STOP` です。`--check` はファイルを検証し、`deploy/` には systemd ユニット（`Restart=on-failure`）と設定例があります。シミュレートした GPIO とコントローラーに対して動作確認済みで、実機のセルでは動かしていません。
+
 ## ✨ 機能
 
 * ✅ **4信号の安全スナップショット(ソフトウェアロジック、レーザーなしでテスト済み):** `cell.py` の `LaserSafetySnapshot.machine_state()` は、キースイッチが有効、エンクロージャーが閉じている、**かつ**インターロックが正常であることを同時に要求する —— いずれか一つでも欠けると、`controller_state` を読む前に `SAFE_STOP` へ解決される。*(実装済み、`tests/test_cell.py` でテスト済み)*
