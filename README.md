@@ -113,6 +113,8 @@ The observation helper is an evidence normalizer, not a laser-controller adapter
 * 🔜 **Concrete laser controller/software integration** — deliberately deferred until the machine and its documented interface are available; GPIO-level interlock reading is real today, a specific G-code/controller command path isn't. *(planned)*
 * ✅ **Repeated idempotency keys:** `LaserMqttBridge` accepts an `IdempotencyStore`: a repeated job key gets the answer given the first time instead of being evaluated again. *(implemented, tested in `tests/test_idempotency.py`)*
 * ✅ **Hardened MQTT loop and fail-closed reads:** a payload that is too large (over 16 KiB) or cannot be read, deeply nested JSON and any unexpected failure are answered with a refusal on the result topic and never end the loop; `cmd/job` answers say `"mode": "gate-only"` and an ABORT through it says that nothing was stopped (the physical E-STOP stops the laser); the state carries `observed_at` and the bridge announces itself on an `availability` topic with a Last Will; any exception while reading the GPIO lines - not only `OSError` - fails all three safeguards, and the three levels are read in one operation under a lock; GRBL-style controller states such as `Hold:0`, `Alarm:1`, `Door:1`, `Jog` and `Home` are understood. *(implemented, tested in `tests/test_hardening.py`)*
+* ✅ **Jobs through the shared intake:** the check of a malformed job and of a repeated `idempotency_key` is the `JobIntake` of the SDK instead of code of this bridge (the keys are no longer prefixed with `job:`).
+* ✅ **Answers published at QoS 1:** the answers to the commands are published at QoS 1 (the shared dispatcher keeps the QoS a bridge gives an answer), so a result is not lost on a flaky link.
 
 ## 🔒 Security & Safety
 

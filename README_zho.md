@@ -113,6 +113,8 @@ flowchart LR
 * 🔜 **具体的激光控制器/软件集成** —— 刻意推迟,直到设备及其文档化接口就绪。*(计划中)*
 * ✅ **重复的幂等键：** `LaserMqttBridge` 接受 `IdempotencyStore`：重复的作业键会得到第一次给出的答复，而不是被重新评估。*（已实现，已在 `tests/test_idempotency.py` 中测试）*
 * ✅ **加固的 MQTT 循环与故障安全读取:** 过大(超过 16 KiB)或无法读取的负载、深度嵌套的 JSON 以及任何意外故障,都会在结果主题上得到拒绝回复,绝不会终止循环;`cmd/job` 的回复带有 `"mode": "gate-only"`,通过它发出的 ABORT 会说明没有停止任何东西(停止激光的是物理急停);状态带有 `observed_at`,桥接在带遗嘱(Last Will)的 `availability` 主题上宣告自己;读取 GPIO 线路时的任何异常——不只是 `OSError`——都会使三个保护装置全部判为失败,三个电平在锁的保护下一次操作读出;能理解 `Hold:0`、`Alarm:1`、`Door:1`、`Jog`、`Home` 等 GRBL 风格的控制器状态。*(已实现,在 `tests/test_hardening.py` 中测试)*
+* ✅ **作业经由共享的受理环节:** 对格式错误的作业和重复的 `idempotency_key` 的检查，由 SDK 的 `JobIntake` 完成，而不是此桥接自己的代码(键不再带 `job:` 前缀)。
+* ✅ **以 QoS 1 发布的响应:** 对命令的响应以 QoS 1 发布(共享调度器会保留桥接给响应指定的 QoS)，因此在不稳定的链路上结果不会丢失。
 
 ## 🔒 安全与防护
 
