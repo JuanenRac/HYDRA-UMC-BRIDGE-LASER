@@ -4,6 +4,8 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+- **The MQTT transport is tested against a real broker:** `tests/test_broker_integration.py` starts a `HYDRA-UMC-MQTT-BROKER` on a free local port and runs the bridge through the shared client: the retained availability, a command answered at QoS 0, 1 and 2, a retained command that is only a replay, messages published at each QoS, the last will after an unclean loss of the link and the way back after the broker went down and up. It skips itself when node, `paho-mqtt` or the installed broker (`HYDRA_UMC_TEST_BROKER_DIR`, default the folder next to this one) are missing.
+
 ## [0.1.9] - The bridge runs as a service, jobs through the shared intake, answers at QoS 1 and the universal README
 
 - **The bridge runs as a service.** `python -m hydra_umc_bridge_laser --config <file>` (or the `hydra-umc-bridge-laser` command) starts it from one TOML file: the GPIO chip and the three safeguard lines with their polarity, bias and debounce, the serial port of the GRBL controller, the MQTT broker, where the state of the cell comes from and the optional auxiliary safeguards (fume extraction, assist air, tube temperature, each read from a small file). A key it does not know is refused, the polarity of a line has no default, and everything fails closed: a missing controller reads OFFLINE, and a cell-state file that is missing, unknown or stale is SAFE_STOP. `--check` validates the file. `deploy/hydra-umc-bridge-laser.service` is the systemd unit (`Restart=on-failure`, a closed device policy, memory limits) and `deploy/bridge-laser.example.toml` the example file. Covered by `tests/test_service.py` with simulated GPIO and a simulated controller.
