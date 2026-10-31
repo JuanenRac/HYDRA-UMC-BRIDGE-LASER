@@ -4,6 +4,8 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [0.2.0] - A bridge that can follow the global stop of the server, the QoS passed to the SDK and a transport tested against a real broker
+
 - **`EventPublish` passes its QoS to the SDK's `MqttPublish`** instead of declaring a slot of its own; the answers and events are still published at QoS 1 and nothing changes on the wire.
 
 - **The bridge can follow the global stop of the server, off by default:** with `HYDRA_UMC_LASER_GLOBAL_STOP=1` and the table `[global_stop]` of the configuration file it subscribes to the retained announcement on `hydra/swarm/safety/estop` (`HYDRA_UMC_LASER_GLOBAL_STOP_TOPIC` changes the topic) and, while the last message says `SAFE_STOP`, says anything but `READY` or cannot be read, `cmd/job` (an abort passes) is refused with the reason in the answer; stops and read-only requests keep working and only `READY` ends it. `HYDRA_UMC_LASER_GLOBAL_STOP_STRICT=1` also refuses until the first announcement has been heard. Without the switch nothing changes. `tests/test_global_stop.py` covers the guard and the refusals, `tests/test_global_stop_broker.py` runs them against a real broker on a free local port (the announcement is delivered at QoS 0, 1 and 2, a retained stop is obeyed at connect, an unreadable one fails closed).
