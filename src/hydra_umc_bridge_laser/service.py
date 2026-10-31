@@ -36,6 +36,7 @@ from typing import Callable, Sequence
 from hydra_umc_sdk.bridge_contract import CellState
 
 from .auxiliary import AuxiliaryCheck, AuxiliarySupervisor
+from .global_stop import DEFAULT_TOPIC, GlobalStopSettings
 from .gpio_safety import GpioLineSettings
 
 CONFIG_ENVIRONMENT = "HYDRA_UMC_BRIDGE_LASER_CONFIG"
@@ -106,6 +107,7 @@ class ServiceConfig:
     cell_state: CellStateConfig = field(default_factory=CellStateConfig)
     auxiliary: tuple[AuxiliaryConfig, ...] = ()
     idempotency_path: str | None = None
+    global_stop: GlobalStopSettings = field(default_factory=GlobalStopSettings)
 
 
 def _table(parent: dict, key: str, *, required: bool = False) -> dict:
@@ -154,7 +156,7 @@ def _line(parent: dict, name: str) -> LineConfig:
 def parse_config(data: dict) -> ServiceConfig:
     """Turn the parsed TOML into the configuration, refusing what is unknown or wrong."""
 
-    _only(data, {"mqtt", "gpio", "controller", "cell_state", "auxiliary", "idempotency"}, "the file")
+    _only(data, {"mqtt", "gpio", "controller", "cell_state", "auxiliary", "idempotency", "global_stop"}, "the file")
     mqtt_table = _table(data, "mqtt")
     _only(mqtt_table, {"host", "port", "client_id", "max_connect_attempts", "connect_retry_delay_seconds"}, "mqtt")
     defaults = MqttSettings()
@@ -216,7 +218,17 @@ def parse_config(data: dict) -> ServiceConfig:
 
     idem = _table(data, "idempotency")
     _only(idem, {"path"}, "idempotency")
-    return ServiceConfig(gpio, mqtt, controller, cell_state, tuple(auxiliary), _kind(idem, "path", str, "idempotency"))
+    stop_table = _table(data, "global_stop")
+    _only(stop_table, {"enabled", "topic", "strict"}, "global_stop")
+    try:
+        global_stop = GlobalStopSettings(
+            _kind(stop_table, "enabled", bool, "global_stop", False),
+            _kind(stop_table, "topic", str, "global_stop", DEFAULT_TOPIC),
+            _kind(stop_table, "strict", bool, "global_stop", False),
+        )
+    except ValueError as error:
+        raise ConfigError(f"global_stop.topic: {error}") from error
+    return ServiceConfig(gpio, mqtt, controller, cell_state, tuple(auxiliary), _kind(idem, "path", str, "idempotency"), global_stop)
 
 
 def load_config(path: str | os.PathLike[str]) -> ServiceConfig:
@@ -311,6 +323,7 @@ def build_bridge(config: ServiceConfig, *, open_gpio=None, open_controller=None,
         idempotency,
         clock=clock,
         auxiliary=auxiliary_supervisor(config.auxiliary, clock=clock),
+        global_stop=config.global_stop,
     )
     return bridge, gpio
 
