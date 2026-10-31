@@ -51,7 +51,7 @@ from hydra_umc_sdk.bridge_contract import CellState, JobPhase, decision_to_dict
 from hydra_umc_sdk.job_intake import IdempotencyStore, JobIntake
 from hydra_umc_sdk.serial_link import GrblReport
 from hydra_umc_sdk.bridge_transport import MessageDispatcher as SharedMessageDispatcher
-from hydra_umc_sdk.bridge_transport import MqttPublish, connect_with_retry, open_bridge_client
+from hydra_umc_sdk.bridge_transport import MqttPublish, connect_with_retry, open_bridge_client  # noqa: F401  (re-exported)
 
 from .cell import LaserCellBridge, LaserSafetySnapshot
 from .auxiliary import AuxiliarySupervisor
@@ -169,7 +169,7 @@ class LaserMqttBridge:
             report = reader()
         except Exception:  # noqa: BLE001 - extra information must never keep the state from being published
             return None
-        return report if report is not None and getattr(report, "state", "") else None
+        return report if report is not None and getattr(report, "state", "") else None  # type: ignore[arg-type]
 
     def state_and_events(self) -> list[MqttPublish]:
         """The retained `state` for a reading taken now, followed by the events (if any) that this reading shows since the last one."""
@@ -245,8 +245,8 @@ class LaserMqttBridge:
         try:
             # - always re-read live, right before the gate decides.
             snapshot = self.refresh_status()
-            decision = self._gate.plan(job, self._cell_state(), snapshot)
-            result = decision_to_dict(decision)
+            gate_decision = self._gate.plan(job, self._cell_state(), snapshot)
+            result = decision_to_dict(gate_decision)
             result["mode"] = "gate-only"
             if self._auxiliary is not None and job.phase is not JobPhase.ABORT:
                 missing = AuxiliarySupervisor.unsatisfied(self._auxiliary.evaluate())
@@ -398,6 +398,6 @@ def run_forever(
                 edge_watcher,
             )
 
-        client.loop_forever()
+        client.loop_forever()  # type: ignore[attr-defined]
     finally:
         dispatcher.close(wait=False)
