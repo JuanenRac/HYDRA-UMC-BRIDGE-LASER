@@ -8,7 +8,8 @@ import unittest
 
 from hydra_umc_sdk.bridge_contract import CellState
 from hydra_umc_bridge_laser import GpioSafetyLines, LaserMqttBridge, LaserSafetySnapshot, SafetyEventTracker
-from hydra_umc_bridge_laser.events import INTERLOCK_OPEN_TOPIC, SAFETY_EVENT_TOPIC
+from hydra_umc_sdk.bridge_transport import MqttPublish
+from hydra_umc_bridge_laser.events import INTERLOCK_OPEN_TOPIC, SAFETY_EVENT_TOPIC, EventPublish
 from hydra_umc_bridge_laser.mqtt_transport import build_edge_watch_on_change, build_edge_watch_on_failure
 
 
@@ -25,6 +26,17 @@ def make_bridge():
     clock = iter(range(1000, 100000))
     bridge = LaserMqttBridge(GpioSafetyLines(key, door, interlock), lambda: "IDLE", lambda: CellState.READY, clock=lambda: next(clock))
     return bridge, key, door, interlock
+
+
+class EventPublishTests(unittest.TestCase):
+    def test_an_event_is_a_qos_one_publish_of_the_sdk(self):
+        event = EventPublish("t", "p")
+        self.assertEqual(event.qos, 1)
+        self.assertFalse(event.retain)
+        self.assertEqual(event, MqttPublish("t", "p", False, 1))
+        self.assertEqual(EventPublish("t", "p", qos=2).qos, 2)
+        with self.assertRaises(ValueError):
+            EventPublish("t", "p", qos=3)
 
 
 class SafetyEventTests(unittest.TestCase):
