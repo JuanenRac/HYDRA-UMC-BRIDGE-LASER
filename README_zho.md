@@ -18,14 +18,14 @@ GPL-3.0-or-later - see LICENSE
   <img src="https://img.shields.io/badge/License-GPL%203.0--or--later-blue.svg" alt="GPL 3.0 or later">
   <img src="https://img.shields.io/badge/Python-3.11%2B-3776AB.svg" alt="Python">
   <img src="https://img.shields.io/badge/Safety-Fails%20Closed-red.svg" alt="Safety">
-  <img src="https://img.shields.io/badge/Tests-196%20passing-2ea44f.svg" alt="Tests">
+  <img src="https://img.shields.io/badge/Tests-197%20passing-2ea44f.svg" alt="Tests">
   <img src="https://img.shields.io/badge/Version-0.1.9-0f6cbd.svg" alt="Version">
   <img src="https://img.shields.io/badge/Maturity-functional-0F6CBD.svg" alt="Maturity">
 </p>
 
 ---
 
-> **诚实检查——今天真正可运行的部分：** 四信号安全快照及其门控（`cell.py` 中的 `LaserSafetySnapshot`/`LaserCellBridge`，每个任务都会经过 `HYDRA-UMC-SDK` 自身真正的 `evaluate_job()`）、只读的证据归一化器（`observation.py`）、真正的 GPIO 联锁读取器（`gpio_safety.py` 中的 `GpioSafetyProbe`，libgpiod v2），以及 MQTT 状态/证据传输（`mqtt_transport.py`）都是真实的，并由 196 个通过的 `unittest` 用例覆盖（`python tools/build_test.py`），其中包括让该桥接对抗一个协议忠实但纯手写的 GPIO/MQTT 模拟器的 `tests/test_gpio_mqtt_emulator.py`。以上这些都从未接触过真实的 GPIO 芯片、真实的 MQTT broker 或真实的激光控制器——`test_gpio_safety.py` 读取的是一个伪造芯片，`test_mqtt_transport.py` 使用的是一个伪造的 broker 客户端。目前还没有具体的激光控制器/软件集成，因为相应的机器及其文档化接口尚不可用——详见下文的"当前状态与后续步骤"（已经如实说明了这一点），以及 `CHANGELOG.md` 中目前具体已交付的内容。 MQTT 传输层也已在开发机器上针对真实的 HYDRA-UMC-MQTT-BROKER 运行过(`tests/test_broker_integration.py`,未安装 broker 时会跳过):QoS 0、1、2 的发布与订阅、保留的可用性及其遗嘱消息,以及 broker 停止后重新启动时的恢复。
+> **诚实检查——今天真正可运行的部分：** 四信号安全快照及其门控（`cell.py` 中的 `LaserSafetySnapshot`/`LaserCellBridge`，每个任务都会经过 `HYDRA-UMC-SDK` 自身真正的 `evaluate_job()`）、只读的证据归一化器（`observation.py`）、真正的 GPIO 联锁读取器（`gpio_safety.py` 中的 `GpioSafetyProbe`，libgpiod v2），以及 MQTT 状态/证据传输（`mqtt_transport.py`）都是真实的，并由 197 个通过的 `unittest` 用例覆盖（`python tools/build_test.py`），其中包括让该桥接对抗一个协议忠实但纯手写的 GPIO/MQTT 模拟器的 `tests/test_gpio_mqtt_emulator.py`。以上这些都从未接触过真实的 GPIO 芯片、真实的 MQTT broker 或真实的激光控制器——`test_gpio_safety.py` 读取的是一个伪造芯片，`test_mqtt_transport.py` 使用的是一个伪造的 broker 客户端。目前还没有具体的激光控制器/软件集成，因为相应的机器及其文档化接口尚不可用——详见下文的"当前状态与后续步骤"（已经如实说明了这一点），以及 `CHANGELOG.md` 中目前具体已交付的内容。 MQTT 传输层也已在开发机器上针对真实的 HYDRA-UMC-MQTT-BROKER 运行过(`tests/test_broker_integration.py`,未安装 broker 时会跳过):QoS 0、1、2 的发布与订阅、保留的可用性及其遗嘱消息,以及 broker 停止后重新启动时的恢复。
 
 > **安全与安防现状:**本生态系统不是经认证的安全系统。目前尚无硬件 E-STOP 通路,没有由固件强制执行的限位或联锁,也没有经过验证的运动指令;固件映像使用 CRC-32 和 Ed25519 签名校验,发布构建会拒绝已公开的开发密钥(中继之后的工具头和扩展板仍运行 URTC 的引导程序,它们使用共享密钥的 HMAC-SHA256 而不是签名);TLS 与双向 TLS 均为可选项,默认关闭;自制电路板尚未组装或测试。在依赖此处任何说法来保障人身安全之前,请先阅读[安全基线](https://github.com/JuanenRac/HYDRA-UMC-DOCS/blob/main/docs/SECURITY_BASELINE.md)和[威胁模型](https://github.com/JuanenRac/HYDRA-UMC-DOCS/blob/main/docs/THREAT_MODEL.md)。
 
@@ -37,7 +37,7 @@ GPL-3.0-or-later - see LICENSE
 |---|---|
 | 版本 | `0.1.9` |
 | 成熟度 | 可用 |
-| 测试 | 196 (`python tools/build_test.py`) |
+| 测试 | 197 (`python tools/build_test.py`) |
 | 技术栈 | Python / Laser controller / G-code / Safety evidence / GPIO interlock reading |
 | 目标 | HYDRA-UMC 工作单元的 Raspberry Pi CM5 |
 | 真实硬件 | 仅模拟：使用模拟器、替身或仿真测试；此版本没有在真实硬件上运行的记录 |
@@ -53,7 +53,7 @@ GPL-3.0-or-later - see LICENSE
 | 领域 | 状态 | 在这里的含义 |
 |---|---|---|
 | 软件 | 🟡 | 主要用途可用；上面的诚实性检查列出了仍然缺少的内容 |
-| 测试 | 🟢 | 196 项自动测试，每次变更都会运行 |
+| 测试 | 🟢 | 197 项自动测试，每次变更都会运行 |
 | 真实硬件 | 🟠 | 仅模拟：使用模拟器、替身或仿真测试；此版本没有在真实硬件上运行的记录 |
 | 文档 | 🟢 | 八种语言的 README，每次变更都会与清单核对 |
 
@@ -191,10 +191,12 @@ run_forever(bridge, host="192.168.0.180", edge_watcher=safety.watcher)   # serve
 
 ## 🧪 测试
 
-运行 `python tools/build_test.py` 会执行 196 个自动 `unittest` 用例（同时编译每个模块）。测试不需要硬件、网络或可选软件包：需要 `paho-mqtt`、`pyserial` 或厂商库的用例使用替身，缺少软件包时则跳过。
+运行 `python tools/build_test.py` 会执行 197 个自动 `unittest` 用例（同时编译每个模块）。测试不需要硬件、网络或可选软件包：需要 `paho-mqtt`、`pyserial` 或厂商库的用例使用替身，缺少软件包时则跳过。
 
 | 测试文件 | 测试数 | 覆盖内容 |
 |---|---|---|
+| `test_global_stop.py`, `test_global_stop_broker.py` | - | 全局停止的守卫及其附带原因的拒绝，以及在空闲本地端口上对真实代理的同样测试（QoS 0、1、2 的通告，连接时遵从保留的停止，无法读取的通告按故障关闭处理） |
+| `test_broker_integration.py`, `broker_harness.py` | - | 在空闲本地端口上对真实 HYDRA-UMC-MQTT-BROKER 的 MQTT 客户端测试：通过客户端下发的指令、保留状态与遗嘱，以及代理掉线再恢复后的回路；缺少 Node.js、`paho-mqtt` 或已安装的代理（`HYDRA_UMC_TEST_BROKER_DIR`，默认是相邻文件夹）时会自动跳过 |
 | `test_cell.py`, `test_observation.py`, `test_events.py`, `test_auxiliary.py` | - | 安全装置、证据、事件和辅助检查 |
 | `test_gpio_safety.py`, `test_gpio_mqtt_emulator.py`, `gpio_mqtt_emulator.py` | - | 针对假线路的 GPIO 读取器；真实桥接对 GPIO 与 MQTT 夹具 |
 | `test_grbl_state.py` | - | GRBL 读取器对以 GRBL 方式应答的内存控制器（横幅、`ok`、过期答复） |
@@ -216,7 +218,7 @@ bash build-test.sh
 bash build.sh
 ```
 
-`build-test` 使用 `py_compile` 编译 `src/`和`tools/` 下的每个模块,并运行在 `tests/` 下发现的完整 `unittest` 套件(`test_cell.py`、`test_observation.py`、`test_gpio_safety.py`、`test_mqtt_transport.py`、`test_gpio_mqtt_emulator.py`、`test_hardening.py`、`test_idempotency.py`、`test_mqtt_environment.py`——共 196 个测试),证明安全空闲准入、防护罩拒绝和中止转发等均按预期工作 —— 它绝不会修改仓库。`build` 会先运行同样的验证,只有成功后才调用 `tools/bump_version.py`,在 `pyproject.toml`、`hydra-umc.project.json` 和 `CHANGELOG.md` 之间同步版本号。目前尚无真正的激光 `run` 命令 —— 这需要经过验证且安全的控制器集成。
+`build-test` 使用 `py_compile` 编译 `src/`和`tools/` 下的每个模块,并运行在 `tests/` 下发现的完整 `unittest` 套件(`test_cell.py`、`test_observation.py`、`test_gpio_safety.py`、`test_mqtt_transport.py`、`test_gpio_mqtt_emulator.py`、`test_hardening.py`、`test_idempotency.py`、`test_mqtt_environment.py`——共 197 个测试),证明安全空闲准入、防护罩拒绝和中止转发等均按预期工作 —— 它绝不会修改仓库。`build` 会先运行同样的验证,只有成功后才调用 `tools/bump_version.py`,在 `pyproject.toml`、`hydra-umc.project.json` 和 `CHANGELOG.md` 之间同步版本号。目前尚无真正的激光 `run` 命令 —— 这需要经过验证且安全的控制器集成。
 
 ## 🩺 故障排除
 
@@ -270,7 +272,7 @@ HYDRA-UMC-BRIDGE-LASER/
 
 **当前已知限制**
 
-**目前真实的部分:** 版本 `0.1.9`,一个已在本地测试过的故障安全规划核心(`LaserSafetySnapshot` + `LaserCellBridge`),依托 `HYDRA-UMC-SDK` 的共享任务门控,包含严格的只读安全证据标准化,能区分真正暂停的任务(`HOLDING`)与真正正在切割的任务(`RUNNING`),一个真实的、与控制器无关的 GPIO 联锁读取(`GpioSafetyProbe`),覆盖钥匙/外壳/联锁这 3 项独立防护,一个真实的 MQTT 状态/证据传输(`mqtt_transport.py`),配有确定性的196项 `unittest` 测试套件,以及已接入 CI 并带 SDK 检出的非变更式 build-test 脚本。
+**目前真实的部分:** 版本 `0.1.9`,一个已在本地测试过的故障安全规划核心(`LaserSafetySnapshot` + `LaserCellBridge`),依托 `HYDRA-UMC-SDK` 的共享任务门控,包含严格的只读安全证据标准化,能区分真正暂停的任务(`HOLDING`)与真正正在切割的任务(`RUNNING`),一个真实的、与控制器无关的 GPIO 联锁读取(`GpioSafetyProbe`),覆盖钥匙/外壳/联锁这 3 项独立防护,一个真实的 MQTT 状态/证据传输(`mqtt_transport.py`),配有确定性的197项 `unittest` 测试套件,以及已接入 CI 并带 SDK 检出的非变更式 build-test 脚本。
 
 **集成边界:** 激光控制器自身已认证的防护罩、钥匙开关和联锁权限从不被绕过;本桥接只负责围绕它门控*辅助*机器人工作,且仅通过读取其上报的状态。
 
