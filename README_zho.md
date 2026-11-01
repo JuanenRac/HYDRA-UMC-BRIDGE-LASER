@@ -196,6 +196,7 @@ run_forever(bridge, host="192.168.0.180", edge_watcher=safety.watcher)   # serve
 | 测试文件 | 测试数 | 覆盖内容 |
 |---|---|---|
 | `test_global_stop.py`, `test_global_stop_broker.py` | - | 全局停止的守卫及其附带原因的拒绝，以及在空闲本地端口上对真实代理的同样测试（QoS 0、1、2 的通告，连接时遵从保留的停止，无法读取的通告按故障关闭处理） |
+| `test_transport_limits.py` | - | MQTT 传输的限制（丢弃最旧等待指令的有界队列、从不作用于停止动词的负载上限、首次连接时带抖动的指数退避），以及取自共享 SDK 而非副本的全局停止守卫；除非设置开启，否则这些限制处于关闭状态 |
 | `test_broker_integration.py`, `broker_harness.py` | - | 在空闲本地端口上对真实 HYDRA-UMC-MQTT-BROKER 的 MQTT 客户端测试：通过客户端下发的指令、保留状态与遗嘱，以及代理掉线再恢复后的回路；缺少 Node.js、`paho-mqtt` 或已安装的代理（`HYDRA_UMC_TEST_BROKER_DIR`，默认是相邻文件夹）时会自动跳过 |
 | `test_cell.py`, `test_observation.py`, `test_events.py`, `test_auxiliary.py` | - | 安全装置、证据、事件和辅助检查 |
 | `test_gpio_safety.py`, `test_gpio_mqtt_emulator.py`, `gpio_mqtt_emulator.py` | - | 针对假线路的 GPIO 读取器；真实桥接对 GPIO 与 MQTT 夹具 |

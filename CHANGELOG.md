@@ -4,6 +4,10 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+- **The guard of the global stop comes from the shared SDK:** the bridge no longer carries its own copy of `global_stop`; it imports `GlobalStopGuard`, `GlobalStopSettings` and `follow_on_connect` from `hydra_umc_sdk.global_stop`, so every bridge refuses moving commands under the same rule. The environment variables and the `[global_stop]` table are unchanged.
+
+- **Limits of the MQTT transport, off by default:** with `HYDRA_UMC_LASER_HARDENED=1` (and the optional `HYDRA_UMC_LASER_MAX_QUEUE`, `..._MAX_PAYLOAD_BYTES`, `..._CONNECT_BACKOFF_FACTOR`, `..._CONNECT_MAX_DELAY_SECONDS` and `..._CONNECT_JITTER`) or the `[hardening]` table of the configuration file the queue of waiting commands is bounded (the oldest waiting command is dropped, the stop lane is never bounded), the size of a payload is capped (stop verbs are exempt) and the first connection retries with exponential backoff and jitter. With nothing set, nothing changes.
+
 ## [0.2.0] - A bridge that can follow the global stop of the server, the QoS passed to the SDK and a transport tested against a real broker
 
 - **`EventPublish` passes its QoS to the SDK's `MqttPublish`** instead of declaring a slot of its own; the answers and events are still published at QoS 1 and nothing changes on the wire.

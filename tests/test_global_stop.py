@@ -14,7 +14,7 @@ from hydra_umc_sdk.bridge_contract import BridgeJob, CellState, JobPhase, Machin
 
 from hydra_umc_bridge_laser import LaserMqttBridge
 from hydra_umc_bridge_laser import GpioSafetyLines
-from hydra_umc_bridge_laser.global_stop import DEFAULT_TOPIC, GlobalStopGuard, GlobalStopSettings, settings_from_environment
+from hydra_umc_sdk.global_stop import DEFAULT_TOPIC, GlobalStopGuard, GlobalStopSettings, settings_from_environment
 from hydra_umc_bridge_laser.mqtt_transport import TOPIC_PREFIX, MessageDispatcher
 
 SAFE_STOP = json.dumps({"schema_version": "1.0", "state": "SAFE_STOP", "source": "hydra-umc-server"}).encode()

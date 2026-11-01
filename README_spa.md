@@ -196,6 +196,7 @@ El usuario, la contraseña y los ficheros TLS salen de las variables `HYDRA_MQTT
 | Fichero de pruebas | Pruebas | Qué cubre |
 |---|---|---|
 | `test_global_stop.py`, `test_global_stop_broker.py` | - | la guardia de la parada global y sus rechazos con el motivo, y lo mismo contra un broker real en un puerto local libre (el anuncio en QoS 0, 1 y 2, una parada retenida obedecida al conectar, una ilegible que falla cerrada) |
+| `test_transport_limits.py` | - | los límites del transporte MQTT (una cola acotada que descarta la orden en espera más antigua, un tope de carga que nunca se aplica a los verbos de parada, espera exponencial con variación aleatoria en la primera conexión) y la guardia de la parada global tomada del SDK compartido en lugar de una copia; los límites están apagados salvo que los ajustes los enciendan |
 | `test_broker_integration.py`, `broker_harness.py` | - | el cliente MQTT contra un HYDRA-UMC-MQTT-BROKER real en un puerto local libre: una orden a través del cliente, el estado retenido y la última voluntad, y la vuelta tras caer y volver el broker; se omite si faltan Node.js, `paho-mqtt` o el broker instalado (`HYDRA_UMC_TEST_BROKER_DIR`, por defecto la carpeta contigua) |
 | `test_cell.py`, `test_observation.py`, `test_events.py`, `test_auxiliary.py` | - | salvaguardas, evidencia, eventos y comprobaciones auxiliares |
 | `test_gpio_safety.py`, `test_gpio_mqtt_emulator.py`, `gpio_mqtt_emulator.py` | - | el lector GPIO contra líneas simuladas; el bridge real contra montajes de GPIO y MQTT |
