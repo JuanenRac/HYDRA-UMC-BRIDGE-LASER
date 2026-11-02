@@ -36,6 +36,7 @@ from typing import Callable, Sequence
 from hydra_umc_sdk.bridge_contract import CellState
 
 from .auxiliary import AuxiliaryCheck, AuxiliarySupervisor
+from .auxiliary_inputs import BIASES, SOURCES, gpio_level_reader, simulated_reader, w1_path, w1_reader
 from hydra_umc_sdk.bridge_transport import BridgeHardening
 from hydra_umc_sdk.global_stop import DEFAULT_TOPIC, GlobalStopSettings
 from .gpio_safety import GpioLineSettings
@@ -96,8 +97,17 @@ class AuxiliaryConfig:
     """One auxiliary safeguard read from a file (``1``/``0``) or, with ``max_celsius``, a temperature in a file."""
 
     name: str
-    path: str
+    path: str = ""
     max_celsius: float | None = None
+    # Where the value comes from: "file" (the default, as above) or, with ``[auxiliary_readers] enabled = true``,
+    # "w1" (a 1-Wire sensor, ``device``), "gpio" (an input line: ``chip``, ``line``, ``active_low``, ``bias``) or "simulated" (``value``).
+    source: str = "file"
+    device: str | None = None
+    chip: str | None = None
+    line: int | None = None
+    active_low: bool | None = None
+    bias: str = "as-is"
+    value: float | bool | None = None
 
 
 @dataclass(frozen=True)
@@ -107,6 +117,7 @@ class ServiceConfig:
     controller: ControllerConfig | None = None
     cell_state: CellStateConfig = field(default_factory=CellStateConfig)
     auxiliary: tuple[AuxiliaryConfig, ...] = ()
+    auxiliary_readers_enabled: bool = False   # the switch for the sources other than "file"; off unless asked for
     idempotency_path: str | None = None
     global_stop: GlobalStopSettings = field(default_factory=GlobalStopSettings)
     hardening: BridgeHardening | None = None    # the [hardening] table; None: the environment of the service decides
@@ -155,10 +166,36 @@ def _line(parent: dict, name: str) -> LineConfig:
     return LineConfig(line, settings)
 
 
+def _check_source_fields(item: AuxiliaryConfig, where: str) -> None:
+    """Each source needs its own fields: a mistake is refused at start, not on the first reading."""
+    if item.source == "file":
+        if not item.path:
+            raise ConfigError(f"{where}.path is required for a file source")
+    elif item.source == "w1":
+        if item.max_celsius is None or not item.device:
+            raise ConfigError(f"{where}: a w1 source needs device and max_celsius")
+        try:
+            w1_path(item.device)
+        except ValueError as error:
+            raise ConfigError(f"{where}.device: {error}") from error
+    elif item.source == "gpio":
+        if item.chip is None or item.line is None or item.active_low is None:
+            raise ConfigError(f"{where}: a gpio source needs chip, line and active_low (the polarity has no default)")
+        if item.line < 0 or item.max_celsius is not None:
+            raise ConfigError(f"{where}: a gpio source has a line that is not negative and no max_celsius")
+        if item.bias not in BIASES:
+            raise ConfigError(f"{where}.bias must be one of {', '.join(BIASES)}")
+    elif item.source == "simulated":
+        if item.value is None or not isinstance(item.value, (bool, int, float)):
+            raise ConfigError(f"{where}: a simulated source needs a value (true/false, or a number together with max_celsius)")
+        if isinstance(item.value, bool) == (item.max_celsius is not None):
+            raise ConfigError(f"{where}: a simulated value is a boolean, or a number together with max_celsius")
+
+
 def parse_config(data: dict) -> ServiceConfig:
     """Turn the parsed TOML into the configuration, refusing what is unknown or wrong."""
 
-    _only(data, {"mqtt", "gpio", "controller", "cell_state", "auxiliary", "idempotency", "global_stop", "hardening"}, "the file")
+    _only(data, {"mqtt", "gpio", "controller", "cell_state", "auxiliary", "auxiliary_readers", "idempotency", "global_stop", "hardening"}, "the file")
     mqtt_table = _table(data, "mqtt")
     _only(mqtt_table, {"host", "port", "client_id", "max_connect_attempts", "connect_retry_delay_seconds"}, "mqtt")
     defaults = MqttSettings()
@@ -206,6 +243,9 @@ def parse_config(data: dict) -> ServiceConfig:
         raise ConfigError("cell_state.max_age_seconds must be positive")
     cell_state = CellStateConfig(source, value, path, max_age)
 
+    readers_table = _table(data, "auxiliary_readers")
+    _only(readers_table, {"enabled"}, "auxiliary_readers")
+    readers_enabled = _kind(readers_table, "enabled", bool, "auxiliary_readers", False)
     checks = data.get("auxiliary", [])
     if not isinstance(checks, list):
         raise ConfigError("[[auxiliary]] must be an array of tables")
@@ -214,8 +254,26 @@ def parse_config(data: dict) -> ServiceConfig:
         if not isinstance(table, dict):
             raise ConfigError("[[auxiliary]] must be an array of tables")
         where = f"auxiliary[{index}]"
-        _only(table, {"name", "path", "max_celsius"}, where)
-        auxiliary.append(AuxiliaryConfig(_kind(table, "name", str, where, required=True), _kind(table, "path", str, where, required=True), _kind(table, "max_celsius", float, where)))
+        _only(table, {"name", "path", "max_celsius", "source", "device", "chip", "line", "active_low", "bias", "value"}, where)
+        source = _kind(table, "source", str, where, "file")
+        if source not in SOURCES:
+            raise ConfigError(f"{where}.source must be one of {', '.join(SOURCES)}")
+        if source != "file" and not readers_enabled:
+            raise ConfigError(f"{where}.source {source!r} needs [auxiliary_readers] enabled = true (off by default)")
+        item = AuxiliaryConfig(
+            _kind(table, "name", str, where, required=True),
+            _kind(table, "path", str, where, ""),
+            _kind(table, "max_celsius", float, where),
+            source,
+            _kind(table, "device", str, where),
+            _kind(table, "chip", str, where),
+            _kind(table, "line", int, where),
+            _kind(table, "active_low", bool, where),
+            _kind(table, "bias", str, where, "as-is"),
+            table.get("value"),
+        )
+        _check_source_fields(item, where)
+        auxiliary.append(item)
     AuxiliarySupervisor([AuxiliaryCheck(item.name, lambda: None, item.max_celsius) for item in auxiliary])  # names and limits are checked now
 
     idem = _table(data, "idempotency")
@@ -246,7 +304,7 @@ def parse_config(data: dict) -> ServiceConfig:
             )
         except ValueError as error:
             raise ConfigError(f"hardening: {error}") from error
-    return ServiceConfig(gpio, mqtt, controller, cell_state, tuple(auxiliary), _kind(idem, "path", str, "idempotency"), global_stop, hardening)
+    return ServiceConfig(gpio, mqtt, controller, cell_state, tuple(auxiliary), readers_enabled, _kind(idem, "path", str, "idempotency"), global_stop, hardening)
 
 
 def load_config(path: str | os.PathLike[str]) -> ServiceConfig:
@@ -298,6 +356,13 @@ def auxiliary_supervisor(items: Sequence[AuxiliaryConfig], *, clock: Callable[[]
         return None
 
     def reader(item: AuxiliaryConfig) -> Callable[[], object]:
+        if item.source == "w1":
+            return w1_reader(item.device or "")
+        if item.source == "gpio":
+            return gpio_level_reader(item.chip or "", item.line or 0, active_low=bool(item.active_low), bias=item.bias)
+        if item.source == "simulated":
+            return simulated_reader(item.value)
+
         def read() -> object:
             word = _fresh_text(item.path, 30.0, clock)
             if word is None:

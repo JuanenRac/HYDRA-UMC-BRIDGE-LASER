@@ -4,6 +4,8 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+- **Readers for the auxiliary safeguards (off by default):** with `[auxiliary_readers] enabled = true`, an `[[auxiliary]]` entry can have `source = "w1"` (a 1-Wire temperature sensor: `device` such as `28-0316a2796e36` and `max_celsius`; the CRC must be YES and 85 C or -127 C count as no reading), `source = "gpio"` (`chip`, `line`, `active_low`, optional `bias`; read with libgpiod) or `source = "simulated"` (`value`, for a dry run). The default `file` source is as before. Another source is refused while the switch is off; a wrong mix of fields is refused at start; a reader that cannot read counts as not satisfied. Tested with files and a fake libgpiod; never with a real sensor or line.
+
 ## [0.2.1] - A limit that is misspelt in the environment stops the start with a clear message, the global stop guard comes from the shared SDK and the MQTT transport has optional limits
 
 - **A limit that is misspelt in the environment stops the start with a clear message:** without a `[hardening]` table the service reads `HYDRA_UMC_LASER_HARDENED` and the limits that go with it; a value that is not a number now ends the start (and `--check`) with `configuration error: HYDRA_UMC_LASER_...` and exit status 2, before the controller or the broker is opened, instead of a traceback in the log of a service that restarts. With the switch off the other variables are not read.

@@ -80,3 +80,15 @@ The first reading only sets the baseline. A watcher that fails is reported as th
 - `[mqtt]` and `[idempotency]`: the broker and, optionally, a file that keeps the idempotency keys across restarts. The MQTT user, password and TLS are not in the file: they come from `HYDRA_MQTT_*` in the environment of the service.
 
 A key the service does not know is refused and `--check` validates the file without starting anything. `deploy/hydra-umc-bridge-laser.service` is the systemd unit: it checks the file before starting, restarts on failure and allows only the GPIO chip and the serial devices. The service has run against simulated GPIO and a simulated controller; it has not run on a real cell.
+
+### Where the values of the auxiliary safeguards come from
+
+An `[[auxiliary]]` entry reads a file by default (`1` or `0`, or a temperature when `max_celsius` is given; a stale file is not satisfied). With `[auxiliary_readers] enabled = true` (off by default) it can also have:
+
+| `source` | Fields | Notes |
+|---|---|---|
+| `w1` | `device` (`28-` plus 12 hexadecimal digits), `max_celsius` | reads `/sys/bus/w1/devices/<device>/w1_slave`; the CRC must be YES; 85 C and -127 C are not measurements |
+| `gpio` | `chip`, `line`, `active_low` (no default), `bias` (`as-is`) | one input line read with libgpiod; it must not be one of the three safeguard lines |
+| `simulated` | `value` (true/false, or a number with `max_celsius`) | a fixed value for a dry run without hardware |
+
+A reader that cannot read counts as not satisfied, like every other check. The `w1` and `gpio` readers have been run against files and a fake libgpiod only.
