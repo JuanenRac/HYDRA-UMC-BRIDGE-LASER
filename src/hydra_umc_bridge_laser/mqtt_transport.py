@@ -48,7 +48,7 @@ from dataclasses import asdict
 from typing import Callable
 
 from hydra_umc_sdk.bridge_contract import CellState, JobPhase, decision_to_dict
-from hydra_umc_sdk.job_intake import IdempotencyStore, JobIntake
+from hydra_umc_sdk.job_intake import IdempotencyStore, JobIntake, read_job_message
 from hydra_umc_sdk.serial_link import GrblReport
 from hydra_umc_sdk.bridge_transport import MessageDispatcher as SharedMessageDispatcher
 from hydra_umc_sdk.bridge_transport import BridgeHardening, hardening_from_environment
@@ -244,21 +244,16 @@ class LaserMqttBridge:
 
     def _handle_job(self, payload: bytes) -> MqttPublish:
         result_topic = f"{TOPIC_PREFIX}cmd/job/result"
-        try:
-            raw = json.loads(payload)
-        except (json.JSONDecodeError, UnicodeDecodeError) as error:
-            decision = {"allowed": False, "reason": f"malformed job payload: {error}"}
-            return EventPublish(result_topic, json.dumps(decision))
-        intake = self._intake.accept(raw if isinstance(raw, dict) else {})
-        if intake.job is None:
-            reason = intake.reason.removeprefix("malformed job: ")
-            return EventPublish(result_topic, json.dumps({"allowed": False, "reason": f"malformed job payload: {reason}"}))
-        job = intake.job
+        message = read_job_message(self._intake, f"{TOPIC_PREFIX}cmd/job", payload)
+        if message.ignore:
+            return EventPublish(result_topic, json.dumps({"allowed": False, "reason": "retained message ignored"}))
+        if message.refusal is not None:
+            return EventPublish(result_topic, json.dumps(message.refusal))
+        if message.repeat_answer is not None:
+            return EventPublish(result_topic, message.repeat_answer)
+        job = message.job
+        assert job is not None
         key = job.idempotency_key
-        if intake.duplicate:
-            stored = self._idempotency.recall(key) if self._idempotency is not None else None
-            fallback = {"allowed": False, "reason": "this idempotency_key was already handled"}
-            return EventPublish(result_topic, stored if stored is not None else json.dumps(fallback))
         try:
             # - always re-read live, right before the gate decides.
             snapshot = self.refresh_status()

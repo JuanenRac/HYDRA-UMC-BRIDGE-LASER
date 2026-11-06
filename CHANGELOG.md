@@ -4,6 +4,8 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+- **The first half of the job handler is the shared one:** the laser bridge reads a `cmd/job` message with the `read_job_message` function of the SDK, the same as the other bridges, so a message that is too large, not JSON, malformed, unsigned or a repeat is refused or answered the same way everywhere.
+
 - **The build test of the repository compiles only on CI or when allowed:** for the stacks that compile (`rust`, `go`, `android`, `flutter`, `firmware-c`), `tools/build_test.py` prints `BUILD_TEST=SKIPPED` with exit status 2 on a plain PC, never a pass; `ALLOW_LOCAL_BUILD=1` allows it and a CI runner always may. The `python` and `node` stacks are not locked.
 
 ## [0.2.2] - The laser bridge reads auxiliary safeguards from 1-Wire temperature sensors and other sources (off by default) and ships a bench script for the tests that need a real cell, all marked as not executed
