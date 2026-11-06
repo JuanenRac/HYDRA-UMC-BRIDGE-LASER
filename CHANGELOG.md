@@ -4,6 +4,8 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+## [0.2.3] - A visible simulation bench: the workflow "Simulation bench" runs the emulators and fakes of the bridge without hardware on every push, by hand and once a week; docs/SIMULATION.md says what it exercises and what it cannot show. (and 2 more changes)
+
 - **A visible simulation bench:** the workflow "Simulation bench" runs the emulators and fakes of the bridge without hardware on every push, by hand and once a week; `docs/SIMULATION.md` says what it exercises and what it cannot show.
 
 - **The first half of the job handler is the shared one:** the laser bridge reads a `cmd/job` message with the `read_job_message` function of the SDK, the same as the other bridges, so a message that is too large, not JSON, malformed, unsigned or a repeat is refused or answered the same way everywhere.
