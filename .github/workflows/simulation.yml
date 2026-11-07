@@ -55,3 +55,37 @@ jobs:
           test_mqtt_transport
           test_broker_integration
           test_global_stop_broker
+
+  gpio-sim:
+    name: Safeguard lines on the kernel GPIO simulator
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check out the SDK contract
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: JuanenRac/HYDRA-UMC-SDK
+          path: .hydra-umc-sdk-contract
+          ref: v0.5.9
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+      - name: Prepare the simulator when the runner allows it
+        # Not every runner kernel ships gpio-sim or a libgpiod v2; the test skips itself, saying why, when something is missing.
+        run: |
+          sudo apt-get update -qq || true
+          sudo apt-get install -y -qq "linux-modules-extra-$(uname -r)" libgpiod-dev || true
+          sudo modprobe gpio-sim || echo "gpio-sim is not available on this kernel"
+          python -m pip install gpiod || echo "the gpiod library could not be installed"
+      - name: Run the kernel simulator cases
+        working-directory: tests
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+          PYTHONPATH: "${{ github.workspace }}/src:${{ github.workspace }}/.hydra-umc-sdk-contract/clients/python/src"
+        run: sudo env "PATH=$PATH" "PYTHONPATH=$PYTHONPATH" python -m unittest -v test_gpio_sim_kernel

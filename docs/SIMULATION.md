@@ -12,7 +12,7 @@ python -m unittest -v <modules>
 ```
 
 from the `tests` folder, with `src` of this repository and `clients/python/src` of the SDK on `PYTHONPATH` (the same layout `python tools/build_test.py` uses). The
-workflow named "Simulation bench" does exactly this on a clean Linux runner on every push and pull request, by hand and once a week, with nothing but Python.
+workflow named "Simulation bench" does exactly this on a clean Linux runner on every push and pull request, by hand and once a week, with nothing but Python; a second job adds the kernel GPIO simulator (`gpio-sim`).
 
 The example settings in `deploy/` show the configuration the service reads; the emulator does not need it.
 
@@ -24,6 +24,7 @@ The example settings in `deploy/` show the configuration the service reads; the 
 | `tests/test_gpio_safety.py` | the three safeguards read live before every gate |
 | `tests/test_auxiliary_inputs.py` | the auxiliary inputs, such as the one-wire temperature reader, read from simulated files and requests |
 | `tests/test_auxiliary_sensor_scenarios.py` | a simulated one-wire tree and extraction line through the real readers and the bridge: power-up value, bad CRC, unplugged sensor, heating and cooling, an abort never held back |
+| `tests/test_gpio_sim_kernel.py` | the real libgpiod path against a chip of the `gpio-sim` kernel module (levels, active-low wiring, edge events, a second request refused); second job of the workflow, skipped where the module is missing |
 | `tests/test_mqtt_transport.py` | the topic dispatch, QoS, idempotency and limits without a broker |
 | `tests/test_broker_integration.py` | the same dispatch against a real MQTT broker; skipped unless the broker checkout is present |
 | `tests/test_global_stop_broker.py` | the global stop over a real broker; skipped unless the broker checkout is present |
