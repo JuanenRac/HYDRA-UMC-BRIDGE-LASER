@@ -4,6 +4,7 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+- **Tube temperature and extraction scenarios on a simulated sensor tree:** `tests/test_auxiliary_sensor_scenarios.py` writes the `w1_slave` file the kernel would write (the 85 C of a part that has just powered up, a failed CRC, an unplugged sensor, a tube that heats up and cools) and drives a simulated extraction line, and checks through the real readers, the supervisor and the bridge that a job is blocked at the limit, an abort is never held back and a good reading recovers. Simulator evidence only; nothing has run on a real sensor or line.
 ## [0.2.3] - A visible simulation bench: the workflow "Simulation bench" runs the emulators and fakes of the bridge without hardware on every push, by hand and once a week; docs/SIMULATION.md says what it exercises and what it cannot show. (and 2 more changes)
 
 - **A visible simulation bench:** the workflow "Simulation bench" runs the emulators and fakes of the bridge without hardware on every push, by hand and once a week; `docs/SIMULATION.md` says what it exercises and what it cannot show.

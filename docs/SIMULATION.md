@@ -23,6 +23,7 @@ The example settings in `deploy/` show the configuration the service reads; the 
 | `tests/test_gpio_mqtt_emulator.py` | the emulator and the way the bridge behaves against it |
 | `tests/test_gpio_safety.py` | the three safeguards read live before every gate |
 | `tests/test_auxiliary_inputs.py` | the auxiliary inputs, such as the one-wire temperature reader, read from simulated files and requests |
+| `tests/test_auxiliary_sensor_scenarios.py` | a simulated one-wire tree and extraction line through the real readers and the bridge: power-up value, bad CRC, unplugged sensor, heating and cooling, an abort never held back |
 | `tests/test_mqtt_transport.py` | the topic dispatch, QoS, idempotency and limits without a broker |
 | `tests/test_broker_integration.py` | the same dispatch against a real MQTT broker; skipped unless the broker checkout is present |
 | `tests/test_global_stop_broker.py` | the global stop over a real broker; skipped unless the broker checkout is present |
