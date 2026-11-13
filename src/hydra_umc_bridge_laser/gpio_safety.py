@@ -27,9 +27,15 @@ import threading
 import time
 from dataclasses import dataclass
 from datetime import timedelta
+from collections.abc import Mapping
+import logging
 from typing import Callable, Protocol, runtime_checkable
 
 from .cell import LaserSafetySnapshot
+
+_LOG = logging.getLogger(__name__)
+
+SAFEGUARDS = ("key", "enclosure", "interlock")
 
 
 @runtime_checkable
@@ -59,6 +65,52 @@ class GpioSafetyLines:
     enclosure_closed: GpioLineReader
     interlock_healthy: GpioLineReader
     read_all: Callable[[], tuple[bool, bool, bool]] | None = None
+
+
+def with_complements(
+    lines: "GpioSafetyLines",
+    complements: Mapping[str, GpioLineReader],
+    on_discrepancy: Callable[[str, bool, bool], None] | None = None,
+) -> "GpioSafetyLines":
+    """Wire a safeguard with TWO contacts: the normal one and a complementary one (a normally-closed plus a normally-open contact of the same device).
+
+    Each complementary reader answers in the same sense as the primary one (True = the safeguard is satisfied; the polarity of its own wiring is declared in
+    its `GpioLineSettings`). A safeguard is satisfied only when BOTH contacts say so. When the two disagree (a welded contact, a cut wire on one channel, a short
+    between them, or a contact that is slow to follow) the safeguard reads as NOT satisfied, never as satisfied, and `on_discrepancy(name, primary, complement)`
+    is told so that the fault can be reported. Safeguards without a complementary contact are read as before.
+    """
+
+    unknown = set(complements) - set(SAFEGUARDS)
+    if unknown:
+        raise ValueError(f"a complementary contact can only be declared for {', '.join(SAFEGUARDS)}, not {', '.join(sorted(unknown))}")
+    primary_readers = {"key": lines.key_enabled, "enclosure": lines.enclosure_closed, "interlock": lines.interlock_healthy}
+
+    def combine(name: str, primary: bool) -> bool:
+        other = complements.get(name)
+        if other is None:
+            return primary
+        complement = other.read() is True
+        if complement != (primary is True):
+            if on_discrepancy is not None:
+                on_discrepancy(name, primary is True, complement)
+            return False
+        return primary is True
+
+    class _Combined:
+        def __init__(self, name: str):
+            self._name = name
+
+        def read(self) -> bool:
+            return combine(self._name, primary_readers[self._name].read())
+
+    def read_all() -> tuple[bool, bool, bool]:
+        if lines.read_all is not None:
+            values: tuple[bool, ...] = lines.read_all()
+        else:
+            values = tuple(primary_readers[name].read() for name in SAFEGUARDS)
+        return tuple(combine(name, value) for name, value in zip(SAFEGUARDS, values, strict=True))  # type: ignore[return-value]
+
+    return GpioSafetyLines(_Combined("key"), _Combined("enclosure"), _Combined("interlock"), read_all)
 
 
 @dataclass(frozen=True)
@@ -119,6 +171,7 @@ def open_gpio_safety(
     key: GpioLineSettings,
     enclosure: GpioLineSettings,
     interlock: GpioLineSettings,
+    complements: Mapping[str, tuple[int, GpioLineSettings]] | None = None,
 ) -> GpioSafety:
     """Open the 3 real GPIO safeguard lines ONCE, for both the level readers and the edge-event watcher.
 
@@ -151,6 +204,13 @@ def open_gpio_safety(
     offsets = (key_line_offset, enclosure_line_offset, interlock_line_offset)
     if len(set(offsets)) != 3:
         raise ValueError("the key, enclosure and interlock lines must be three different GPIO lines")
+    complements = dict(complements or {})
+    unknown = set(complements) - set(SAFEGUARDS)
+    if unknown:
+        raise ValueError(f"a complementary contact can only be declared for {', '.join(SAFEGUARDS)}, not {', '.join(sorted(unknown))}")
+    extra_offsets = [complements[name][0] for name in SAFEGUARDS if name in complements]
+    if len(set(offsets) | set(extra_offsets)) != len(offsets) + len(extra_offsets):
+        raise ValueError("every GPIO line of the safeguards, complementary contacts included, must be different")
 
     def settings_of(wiring: GpioLineSettings):  # noqa: ANN202
         return gpiod.LineSettings(
@@ -168,14 +228,38 @@ def open_gpio_safety(
             key_line_offset: settings_of(key),
             enclosure_line_offset: settings_of(enclosure),
             interlock_line_offset: settings_of(interlock),
+            **{complements[name][0]: settings_of(complements[name][1]) for name in SAFEGUARDS if name in complements},
         },
     )
     lock = threading.Lock()
+    every_offset = list(offsets) + extra_offsets
+    complement_index = {name: len(offsets) + extra_offsets.index(complements[name][0]) for name in SAFEGUARDS if name in complements}
+    last_discrepancy: dict[str, bool] = {}
+
+    def read_everything() -> tuple[bool, ...]:
+        with lock:
+            values = request.get_values(every_offset)
+        return tuple(value == Value.ACTIVE for value in values)
+
+    def report(name: str, primary: bool, complement: bool) -> None:
+        if not last_discrepancy.get(name):
+            _LOG.warning("the two contacts of the %s safeguard disagree (main contact %s, complementary contact %s): it reads as NOT satisfied", name, primary, complement)
+        last_discrepancy[name] = True
 
     def read_all() -> tuple[bool, bool, bool]:
-        with lock:
-            values = request.get_values(list(offsets))
-        return tuple(value == Value.ACTIVE for value in values)  # type: ignore[return-value]
+        values = read_everything()
+        result = []
+        for index, name in enumerate(SAFEGUARDS):
+            value = values[index]
+            if name in complement_index:
+                other = values[complement_index[name]]
+                if other != value:
+                    report(name, value, other)
+                    value = False
+                else:
+                    last_discrepancy[name] = False
+            result.append(value)
+        return tuple(result)  # type: ignore[return-value]
 
     class _RequestedLine:
         def __init__(self, index: int):
