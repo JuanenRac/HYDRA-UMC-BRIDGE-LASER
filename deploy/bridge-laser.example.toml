@@ -25,6 +25,10 @@ debounce_ms = 10
 line = 27
 active_low = true
 debounce_ms = 10
+# A second, complementary contact of the same device (a normally-open one next to the normally-closed one). Both lines, or neither:
+# the safeguard is satisfied only when both contacts agree, a disagreement reads as NOT satisfied. The polarity has no default.
+# complement_line = 28
+# complement_active_low = false
 
 [gpio.interlock]
 line = 22

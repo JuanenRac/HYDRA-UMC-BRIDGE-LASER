@@ -31,7 +31,7 @@ import time
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Sequence
+from typing import Any, Callable, Sequence
 
 from hydra_umc_sdk.bridge_contract import CellState
 
@@ -64,6 +64,8 @@ class MqttSettings:
 class LineConfig:
     line: int
     settings: GpioLineSettings
+    # A second, complementary contact of the same device (normally-open next to a normally-closed one): the line and how it is wired.
+    complement: tuple[int, GpioLineSettings] | None = None
 
 
 @dataclass(frozen=True)
@@ -155,7 +157,7 @@ def _kind(table: dict, key: str, kind: type, where: str, default: object = None,
 def _line(parent: dict, name: str) -> LineConfig:
     table = _table(parent, name, required=True)
     where = f"gpio.{name}"
-    _only(table, {"line", "active_low", "bias", "debounce_ms"}, where)
+    _only(table, {"line", "active_low", "bias", "debounce_ms", "complement_line", "complement_active_low"}, where)
     line = _kind(table, "line", int, where, required=True)
     if line < 0:
         raise ConfigError(f"{where}.line must not be negative")
@@ -163,7 +165,15 @@ def _line(parent: dict, name: str) -> LineConfig:
     active_low = _kind(table, "active_low", bool, where, required=True)
     settings = GpioLineSettings(active_low, _kind(table, "bias", str, where), _kind(table, "debounce_ms", float, where, 10.0))
     settings.resolved_bias()  # refuses a wrong bias or a negative debounce here, at start, and not on the first reading
-    return LineConfig(line, settings)
+    complement = None
+    if "complement_line" in table or "complement_active_low" in table:
+        # both or none: the polarity of the second contact is wiring, so it has no default either
+        complement_line = _kind(table, "complement_line", int, where, required=True)
+        if complement_line < 0:
+            raise ConfigError(f"{where}.complement_line must not be negative")
+        complement_active_low = _kind(table, "complement_active_low", bool, where, required=True)
+        complement = (complement_line, GpioLineSettings(complement_active_low, None, settings.debounce_ms))
+    return LineConfig(line, settings, complement)
 
 
 def _check_source_fields(item: AuxiliaryConfig, where: str) -> None:
@@ -214,6 +224,9 @@ def parse_config(data: dict) -> ServiceConfig:
     key, enclosure, interlock = _line(gpio_table, "key"), _line(gpio_table, "enclosure"), _line(gpio_table, "interlock")
     if len({key.line, enclosure.line, interlock.line}) != 3:
         raise ConfigError("gpio: the key, enclosure and interlock lines must be three different lines")
+    every_line = [item.line for item in (key, enclosure, interlock)] + [item.complement[0] for item in (key, enclosure, interlock) if item.complement]
+    if len(set(every_line)) != len(every_line):
+        raise ConfigError("gpio: every line, complementary contacts included, must be a different line")
     gpio = GpioConfig(_kind(gpio_table, "chip", str, "gpio", required=True), key, enclosure, interlock, _kind(gpio_table, "edge_watch", bool, "gpio", True))
 
     controller = None
@@ -385,6 +398,10 @@ def build_bridge(config: ServiceConfig, *, open_gpio=None, open_controller=None,
     from .grbl_state import open_grbl_laser_state
     from .mqtt_transport import LaserMqttBridge
 
+    extra: dict[str, Any] = {}
+    complements = {name: item.complement for name, item in (("key", config.gpio.key), ("enclosure", config.gpio.enclosure), ("interlock", config.gpio.interlock)) if item.complement}
+    if complements:
+        extra["complements"] = complements  # only when declared: the call stays the same for a bridge with one contact per safeguard
     gpio = (open_gpio or open_gpio_safety)(
         config.gpio.chip,
         config.gpio.key.line,
@@ -393,6 +410,7 @@ def build_bridge(config: ServiceConfig, *, open_gpio=None, open_controller=None,
         key=config.gpio.key.settings,
         enclosure=config.gpio.enclosure.settings,
         interlock=config.gpio.interlock.settings,
+        **extra,
     )
     if config.controller is not None:
         controller_state = (open_controller or open_grbl_laser_state)(config.controller.device, config.controller.baud, config.controller.timeout_seconds)
