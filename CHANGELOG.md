@@ -4,6 +4,7 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+- **Tests of the configuration refusals:** every rule of the service configuration with the exact mistake that breaks it (unknown keys, wrong types, the polarity of the safety lines that has no default, clashing lines, the auxiliary sources that are off unless switched on and the fields each source needs) in `tests/test_config_refusals.py`, part of the simulation bench. CI now measures coverage with a floor.
 - **The state of the laser cell can be published on a timer, off by default:** with `HYDRA_UMC_LASER_HEARTBEAT_S` set to a number of seconds (1 to 3600) the bridge reads its state that often and publishes it like `cmd/status`, so `observed_at` of the retained state keeps moving between commands. A reading of the safeguards that fails publishes the fail-closed state, not the last good one. Unset, empty, zero or not a number mean off. The reading takes the same lock as every other one. Tested with fake clients; no controller or broker was involved.
 
 ## [0.2.4] - GRBL, GPIO and sensor scenarios and a coverage floor

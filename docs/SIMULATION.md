@@ -28,6 +28,7 @@ The example settings in `deploy/` show the configuration the service reads; the 
 | `tests/test_mqtt_transport.py` | the topic dispatch, QoS, idempotency and limits without a broker |
 | `tests/test_broker_integration.py` | the same dispatch against a real MQTT broker; skipped unless the broker checkout is present |
 | `tests/test_global_stop_broker.py` | the global stop over a real broker; skipped unless the broker checkout is present |
+| `tests/test_config_refusals.py` | every rule of the service configuration shown with the exact mistake that breaks it: unknown keys, wrong types, the polarity of the safety lines with no default, line clashes, the off-by-default auxiliary sources and the fields each source needs |
 
 The broker scenarios start a real MQTT broker from a checkout of HYDRA-UMC-MQTT-BROKER (`HYDRA_UMC_TEST_BROKER_DIR`); the simulation job does not install it, so
 those cases skip themselves there and run in the normal test run on a machine that has the broker.
