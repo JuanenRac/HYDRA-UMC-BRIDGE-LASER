@@ -55,6 +55,7 @@ from hydra_umc_sdk.bridge_transport import BridgeHardening, hardening_from_envir
 from hydra_umc_sdk.bridge_transport import MqttPublish, connect_with_retry, open_bridge_client  # noqa: F401  (re-exported)
 
 from hydra_umc_sdk.global_stop import GlobalStopGuard, GlobalStopSettings, follow_on_connect
+from .heartbeat import StateHeartbeat, interval_from_environment
 from .cell import LaserCellBridge, LaserSafetySnapshot
 from .auxiliary import AuxiliarySupervisor
 from .events import EventPublish, SafetyEventTracker
@@ -361,6 +362,15 @@ def start_edge_watch_thread(
     return thread
 
 
+def heartbeat_messages(bridge: LaserMqttBridge) -> list[MqttPublish]:
+    """What one round of the heartbeat publishes: the reading of the safeguards taken now, or, when they cannot be read, the fail-closed state (never the old one)."""
+    try:
+        return bridge.state_and_events()
+    except Exception as error:  # noqa: BLE001 - losing sight of the safeguards must show as unsafe, not as the last good reading
+        _LOG.error("the heartbeat could not read the safeguards: %s", type(error).__name__)
+        return bridge.failed_state_and_events(f"heartbeat reading failed: {type(error).__name__}")
+
+
 def run_forever(
     bridge: LaserMqttBridge,
     host: str,
@@ -373,6 +383,7 @@ def run_forever(
     password: str | None = None,
     edge_watcher: EdgeEventSource | None = None,
     hardening: BridgeHardening | None = None,
+    heartbeat_interval_s: float | None = None,
 ) -> None:
     """Connect to a real HYDRA-UMC-MQTT-BROKER and dispatch forever.
 
@@ -396,6 +407,8 @@ def run_forever(
 
     The bridge announces itself on `availability`: "online" once connected, and
     the broker publishes "offline" (the Last Will) if the connection is lost.
+
+    `heartbeat_interval_s` (default: `HYDRA_UMC_LASER_HEARTBEAT_S`, off when unset) publishes the state every that many seconds; see heartbeat.py.
     """
 
     if password is not None and username is None:
@@ -405,6 +418,8 @@ def run_forever(
     hardening = hardening if hardening is not None else hardening_from_environment(GLOBAL_STOP_ENVIRONMENT_NAME)
     dispatcher = MessageDispatcher(bridge, **hardening.dispatcher_kwargs())  # type: ignore[arg-type]  # the keywords are ints; the stop verbs stay the default
     guard = getattr(bridge, "global_stop", None)  # a bridge object that is not one of ours has none: nothing to follow
+    interval = heartbeat_interval_s if heartbeat_interval_s is not None else interval_from_environment()
+    heartbeat: StateHeartbeat | None = None
     try:
         client = open_bridge_client(
             host,
@@ -426,6 +441,15 @@ def run_forever(
                 edge_watcher,
             )
 
+        if interval > 0.0:
+            heartbeat = StateHeartbeat(
+                lambda: heartbeat_messages(bridge),
+                lambda publish: client.publish(publish.topic, publish.payload, qos=getattr(publish, "qos", 0), retain=publish.retain),  # type: ignore[attr-defined]
+                interval,
+            )
+            heartbeat.start()
         client.loop_forever()  # type: ignore[attr-defined]
     finally:
+        if heartbeat is not None:
+            heartbeat.stop()
         dispatcher.close(wait=False)

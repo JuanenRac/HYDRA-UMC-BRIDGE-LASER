@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented here.
 
+## [Unreleased]
+
+- **The state of the laser cell can be published on a timer, off by default:** with `HYDRA_UMC_LASER_HEARTBEAT_S` set to a number of seconds (1 to 3600) the bridge reads its state that often and publishes it like `cmd/status`, so `observed_at` of the retained state keeps moving between commands. A reading of the safeguards that fails publishes the fail-closed state, not the last good one. Unset, empty, zero or not a number mean off. The reading takes the same lock as every other one. Tested with fake clients; no controller or broker was involved.
+
 ## [0.2.4] - GRBL, GPIO and sensor scenarios and a coverage floor
 
 - **README: the platform statement:** a note says that where the README speaks of the CM5 it means the pilot bench that runs today, and that the target platform of HYDRA-UMC, an NVIDIA Jetson Orin NX 16 GB, is a design that has not been built or tested.

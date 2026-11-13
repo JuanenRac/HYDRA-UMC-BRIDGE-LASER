@@ -52,6 +52,10 @@ In the configuration file of the service the same three switches are the table `
 
 While the last announcement says `SAFE_STOP`, says anything but `READY`, or cannot be read, the command handler of the bridge refuses `cmd/job` (an abort job passes) with an answer that gives the reason (`global stop active (SAFE_STOP) - nothing moves until the server announces READY`); `cmd/status` keep working. Only a `READY` message ends it. The announcement is read although it is retained: it is the state, not a replayed command. When the broker is lost the bridge keeps the last state it heard; a bridge that has not heard the topic yet is left as it was, unless `HYDRA_UMC_LASER_GLOBAL_STOP_STRICT` is on. This is a refusal in software: the controller and the machine keep the last word, and the contract adds a stop, it never removes one. Tested against a real broker (`tests/test_global_stop_broker.py`); never run with the real server.
 
+## Publishing the state on a timer
+
+The retained `state` carries `observed_at`, but nothing refreshes it between two commands. With `HYDRA_UMC_LASER_HEARTBEAT_S` set to a number of seconds (1 to 3600; unset, empty, zero, negative or not a number mean off, the default) the bridge reads its state that often and publishes it the same way `cmd/status` does, so a consumer can tell a live bridge from a stale retained message. The reading takes the same lock as a command, so it never interleaves with one. When the safeguards cannot be read, the fail-closed `state` is published (every safeguard unsatisfied), never the last good reading. Simulator and fake-client evidence only.
+
 ## Hardware acceptance gate
 
 Choose the controller and documented interface, validate signals against certified safety hardware, test stale/disconnected behavior, prove independent E-STOP and conduct dry HIL trials without active material. Only then can a separately reviewed controller adapter be considered.
