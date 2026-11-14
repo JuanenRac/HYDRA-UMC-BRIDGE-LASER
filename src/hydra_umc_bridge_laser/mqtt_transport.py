@@ -42,12 +42,13 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import threading
 import time
 from dataclasses import asdict
 from typing import Callable
 
-from hydra_umc_sdk.bridge_contract import CellState, JobPhase, decision_to_dict
+from hydra_umc_sdk.bridge_contract import BridgeJob, CellState, JobPhase, decision_to_dict
 from hydra_umc_sdk.job_intake import IdempotencyStore, JobIntake, read_job_message
 from hydra_umc_sdk.serial_link import GrblReport
 from hydra_umc_sdk.bridge_transport import MessageDispatcher as SharedMessageDispatcher
@@ -63,6 +64,7 @@ from .gpio_safety import EdgeEventSource, GpioSafetyLines, GpioSafetyProbe, watc
 
 TOPIC_PREFIX = "hydra/bridges/laser/"
 AVAILABILITY_TOPIC = f"{TOPIC_PREFIX}availability"
+IN_DOUBT_CONSULT_ENVIRONMENT = "HYDRA_UMC_LASER_IN_DOUBT_CONSULT"
 
 # A command is a few hundred bytes; anything larger is not a command, and parsing it is how a hostile payload costs the bridge its memory or its stack.
 MAX_PAYLOAD_BYTES = 16 * 1024
@@ -115,7 +117,10 @@ class LaserMqttBridge:
         clock: Callable[[], float] = time.time,
         auxiliary: AuxiliarySupervisor | None = None,
         global_stop: GlobalStopGuard | GlobalStopSettings | None = None,
+        in_doubt_consult: bool | None = None,
     ) -> None:
+        """`in_doubt_consult` makes a repeated job key whose first attempt left no answer be answered with what the safeguards and the controller report now instead of a plain refusal;
+        when it is not given it follows `HYDRA_UMC_LASER_IN_DOUBT_CONSULT=1` (default off). The job is never evaluated again either way."""
         # docs/BRIDGE_CONTRACT.md: the idempotency key of a job is handled once; a repeat gets the answer that was given, nothing is evaluated again
         self._idempotency = idempotency
         # follows the global stop that the server announces (global_stop.py); off unless HYDRA_UMC_LASER_GLOBAL_STOP=1 or a guard is given
@@ -126,7 +131,8 @@ class LaserMqttBridge:
         else:
             self.global_stop = GlobalStopGuard.from_environment(GLOBAL_STOP_ENVIRONMENT_NAME)
         # what arrives as a job goes through the shared intake: a malformed one is refused and a repeated key is answered from the store
-        self._intake = JobIntake(idempotency)
+        consult = in_doubt_consult if in_doubt_consult is not None else os.environ.get(IN_DOUBT_CONSULT_ENVIRONMENT, "").strip() == "1"
+        self._intake = JobIntake(idempotency, in_doubt_policy="consult" if consult else "refuse", status_query=self._report_for_job_in_doubt)
         self._lines = lines
         self._controller_state = controller_state
         self._cell_state = cell_state
@@ -156,6 +162,29 @@ class LaserMqttBridge:
 
         with self._read_lock:
             return self._probe.read_snapshot(self._controller_state(), self._lines)
+
+    def _report_for_job_in_doubt(self, job: BridgeJob) -> str | None:
+        """What the safeguards and the controller say now about a job whose first attempt left no answer (the `status_query` of the shared intake).
+
+        It is a reading, not a decision: the job is not evaluated and nothing is sent. A controller that reports nothing gives no answer and the repeat is refused.
+        """
+        snapshot = self.refresh_status()
+        if not snapshot.controller_state:
+            return None
+        return json.dumps(
+            {
+                "allowed": False,
+                "mode": "gate-only",
+                "forwarded": False,
+                "in_doubt": True,
+                "reason": f"the first attempt of this job left no answer; the cell now reports {snapshot.machine_state().value} and the job is not evaluated again",
+                "machine_state": snapshot.machine_state().value,
+                "controller_state": snapshot.controller_state,
+                "key_enabled": snapshot.key_enabled,
+                "enclosure_closed": snapshot.enclosure_closed,
+                "interlock_healthy": snapshot.interlock_healthy,
+            }
+        )
 
     def state_publish(self) -> MqttPublish:
         """The retained `state` message for a reading taken right now."""
