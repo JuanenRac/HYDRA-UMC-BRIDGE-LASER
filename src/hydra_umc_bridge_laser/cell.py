@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from hydra_umc_sdk.bridge_contract import BridgeJob, CellState, GateDecision, MachineState, evaluate_job
+from hydra_umc_sdk.grbl_status import grbl_machine_state
 
 
 @dataclass(frozen=True)
@@ -24,32 +25,9 @@ class LaserSafetySnapshot:
             return MachineState.SAFE_STOP
         if not isinstance(self.controller_state, str):
             return MachineState.OFFLINE
-        # GRBL-family controllers (LaserGRBL, LightBurn in GRBL mode) report
-        # "Hold:0"/"Hold:1", "Door:0".."Door:3", "Alarm:n" with a numeric
-        # substate, and also "Jog", "Home" and "Check": the substate is
-        # dropped before matching, the way the CNC bridge does, so that
-        # "Alarm:1" is a FAULT and not an unknown (OFFLINE) token.
-        state = self.controller_state.upper().split(":")[0]
-        if state == "IDLE":
-            return MachineState.IDLE
-        if state in {"RUN", "RUNNING", "JOG", "HOME"}:
-            return MachineState.RUNNING
-        # A paused job means the beam is not actively cutting/engraving - a
-        # real, safety-relevant distinction from RUNNING, not just a naming
-        # nuance. Collapsing it into RUNNING hid this distinct condition.
-        # HOLDING already exists in the shared SDK for exactly this,
-        # matching the same real "paused is not running" fix already made
-        # in the sibling PRINTER3D (Moonraker print_stats.state=paused) and
-        # CNC (GRBL Hold) bridges. Does not change any dispatch decision -
-        # evaluate_job() only permits productive work on IDLE either way -
-        # only the accuracy of the reported state.
-        if state in {"PAUSED", "HOLD"}:
-            return MachineState.HOLDING
-        if state in {"FAULT", "ALARM", "ERROR"}:
-            return MachineState.FAULT
-        if state == "DOOR":
-            return MachineState.SAFE_STOP
-        return MachineState.OFFLINE
+        # The state word of a GRBL-family controller (LaserGRBL, LightBurn in GRBL mode) is read by the table every bridge shares:
+        # the numeric substate is dropped, the case is ignored and an unknown word is OFFLINE, never a state that allows work.
+        return grbl_machine_state(self.controller_state)
 
 
 class LaserCellBridge:
