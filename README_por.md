@@ -164,6 +164,7 @@ A biblioteca: `LaserCellBridge`, `LaserSafetySnapshot`, `LaserMqttBridge`, `Gpio
 | `GpioLineSettings.active_low` | obrigatório | `True` quando o sinal é seguro no nível 0 (um contacto normalmente fechado à massa) |
 | `GpioLineSettings.bias` | à prova de falha | `pull-up`, `pull-down`, `disabled` ou `as-is`; sem valor escolhe a que faz um fio cortado ler-se como inseguro |
 | `GpioLineSettings.debounce_ms` | `10.0` | ressalto ignorado durante este tempo; `0` desliga, um valor negativo é recusado |
+| `HYDRA_UMC_LASER_IN_DOUBT_CONSULT` | desativado | `1` responde a uma chave de trabalho repetida cuja primeira tentativa não deixou resposta com o que as proteções e o controlador indicam agora, em vez de a recusar; o trabalho nunca volta a ser avaliado |
 | `HYDRA_UMC_LASER_GLOBAL_STOP` | desativado | `1` segue a paragem global do servidor: enquanto o último anúncio no tópico retido `hydra/swarm/safety/estop` disser `SAFE_STOP` (ou não puder ser lido), o bridge recusa com um motivo: um trabalho (um aborto passa); só `READY` lhe põe fim. `HYDRA_UMC_LASER_GLOBAL_STOP_TOPIC` muda o tópico e `HYDRA_UMC_LASER_GLOBAL_STOP_STRICT=1` recusa também até chegar o primeiro anúncio |
 | `HYDRA_MQTT_USERNAME` | nenhum | O nome de utilizador MQTT; o broker liga-o a um prefixo de ID de cliente |
 | `HYDRA_MQTT_PASSWORD` | nenhum | A palavra-passe; só vale em conjunto com o nome de utilizador |
