@@ -164,6 +164,7 @@ flowchart LR
 | `GpioLineSettings.active_low` | 必須 | 論理 0 で安全な信号なら `True`（グランドへの常閉接点） |
 | `GpioLineSettings.bias` | フェイルセーフ | `pull-up`・`pull-down`・`disabled`・`as-is`。未指定なら断線を安全でないと読ませるものを選びます |
 | `GpioLineSettings.debounce_ms` | `10.0` | この時間だけ接点のチャタリングを無視します。`0` で無効、負の値は拒否されます |
+| `HYDRA_UMC_LASER_IN_DOUBT_CONSULT` | オフ | `1` にすると、最初の試行が応答を残さなかった再送のジョブキーを拒否せず、保護装置とコントローラーが現在報告している状態で応答します。ジョブが再評価されることはありません |
 | `HYDRA_UMC_LASER_GLOBAL_STOP` | オフ | `1` でサーバーのグローバル停止に従います。保持トピック `hydra/swarm/safety/estop` の最新の通知が `SAFE_STOP`（または読み取れない）の間、ブリッジは理由を付けて次を拒否します：ジョブ（中止は通す）。解除は `READY` のみです。`HYDRA_UMC_LASER_GLOBAL_STOP_TOPIC` でトピックを変更でき、`HYDRA_UMC_LASER_GLOBAL_STOP_STRICT=1` は最初の通知が届くまでも拒否します |
 | `HYDRA_MQTT_USERNAME` | なし | MQTT のユーザー名。ブローカーはクライアント ID のプレフィックスに結び付けます |
 | `HYDRA_MQTT_PASSWORD` | なし | パスワード。ユーザー名と一緒にのみ有効です |

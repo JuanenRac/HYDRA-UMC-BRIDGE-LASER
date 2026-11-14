@@ -164,6 +164,7 @@ flowchart LR
 | `GpioLineSettings.active_low` | 必填 | 信号在逻辑 0 时为安全则取 `True`（接地的常闭触点） |
 | `GpioLineSettings.bias` | 故障安全 | `pull-up`、`pull-down`、`disabled` 或 `as-is`；未设置时选择使断线被读为不安全的那种 |
 | `GpioLineSettings.debounce_ms` | `10.0` | 在此时间内忽略触点抖动；`0` 关闭，负值被拒绝 |
+| `HYDRA_UMC_LASER_IN_DOUBT_CONSULT` | 关闭 | `1` 时，对首次尝试未留下应答的重复任务键，不再直接拒绝，而是用保护装置和控制器当前上报的状态作答；任务绝不会被再次评估 |
 | `HYDRA_UMC_LASER_GLOBAL_STOP` | 关闭 | `1` 跟随服务器的全局停止：只要保留主题 `hydra/swarm/safety/estop` 上最新的通知是 `SAFE_STOP`（或无法读取），桥接就会带原因拒绝：任务（中止放行）；只有 `READY` 才能解除。`HYDRA_UMC_LASER_GLOBAL_STOP_TOPIC` 可更改主题，`HYDRA_UMC_LASER_GLOBAL_STOP_STRICT=1` 会在收到第一条通知之前也拒绝 |
 | `HYDRA_MQTT_USERNAME` | 无 | MQTT 用户名；代理将其绑定到客户端 ID 前缀 |
 | `HYDRA_MQTT_PASSWORD` | 无 | 密码；只能与用户名一起使用 |
