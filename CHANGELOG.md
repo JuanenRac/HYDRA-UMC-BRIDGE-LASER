@@ -4,6 +4,9 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+
+## [0.2.5]
+
 - **The SDK pin and the shared tools are up to date:** the SDK dependency names the newest release tag, and the shared tools are the canonical copies again.
 - **A job whose first attempt left no answer can be looked up instead of refused, off by default:** with `HYDRA_UMC_LASER_IN_DOUBT_CONSULT=1` (or `in_doubt_consult=True`) a repeated idempotency key that was claimed but never answered (for example after a restart in the middle of a job) is answered with what the safeguards and the controller report now (`in_doubt`, `machine_state`, `controller_state`, the three safeguards, `forwarded: false`) through the `status_query` of the shared job intake. The job is never evaluated again, the reading is stored so a further repeat gets the same answer, and a controller that says nothing leaves the repeat refused. Without the switch the repeat is refused exactly as before. Tested against a scripted controller and simulated safety lines (`tests/test_in_doubt_and_grbl_status.py`, simulation only).
 
@@ -14,6 +17,8 @@ All notable changes to this project are documented here.
 - **A safeguard can be wired with two contacts that must agree (`complement_line` and `complement_active_low` in `[gpio.key]`, `[gpio.enclosure]` or `[gpio.interlock]`, off unless declared):** a normally-open contact next to the normally-closed one of the same device. The safeguard reads as satisfied only when both contacts say so; when they disagree (a welded contact, a cut wire on one channel, a short between them) it reads as NOT satisfied, never as satisfied, and one warning per episode is logged. All the lines are still one request and one read, so the snapshot cannot mix instants. `with_complements()` wraps any `GpioSafetyLines`; `tests/test_two_channel_safeguards.py` (15 tests) uses a fake libgpiod and fake lines, so it is simulator evidence only: no contact was wired.
 - **Tests of the configuration refusals:** every rule of the service configuration with the exact mistake that breaks it (unknown keys, wrong types, the polarity of the safety lines that has no default, clashing lines, the auxiliary sources that are off unless switched on and the fields each source needs) in `tests/test_config_refusals.py`, part of the simulation bench. CI now measures coverage with a floor.
 - **The state of the laser cell can be published on a timer, off by default:** with `HYDRA_UMC_LASER_HEARTBEAT_S` set to a number of seconds (1 to 3600) the bridge reads its state that often and publishes it like `cmd/status`, so `observed_at` of the retained state keeps moving between commands. A reading of the safeguards that fails publishes the fail-closed state, not the last good one. Unset, empty, zero or not a number mean off. The reading takes the same lock as every other one. Tested with fake clients; no controller or broker was involved.
+
+- Successful incremental build: synchronized package metadata and `hydra-umc.project.json`.
 
 ## [0.2.4] - GRBL, GPIO and sensor scenarios and a coverage floor
 
