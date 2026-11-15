@@ -262,7 +262,8 @@ HYDRA-UMC-BRIDGE-LASER/
 │   ├── observation.py             ローカルの安全の証拠（レーザーへの命令は決して出さない）
 │   ├── events.py                  安全装置の変化をタイムスタンプ付きイベントにする
 │   ├── auxiliary.py               排煙・アシストエア・チューブ温度の確認
-│   └── mqtt_transport.py          MQTT のコマンド・状態・イベントのトランスポート
+│   ├── mqtt_transport.py          MQTT のコマンド・状態・イベントのトランスポート
+│   └── config_access.py           設定ファイルの場所とアクセス確認
 ├── tests/                         149 件（GPIO と MQTT のエミュレーター付き）
 ├── deploy/                        systemd ユニットと設定例
 ├── docs/                          ブリッジガイド、証拠の境界、配線ガイド

@@ -262,7 +262,8 @@ HYDRA-UMC-BRIDGE-LASER/
 │   ├── observation.py             本地安全证据，绝不是激光命令
 │   ├── events.py                  安全装置变化时生成带时间戳的事件
 │   ├── auxiliary.py               排烟、辅助气和管温检查
-│   └── mqtt_transport.py          MQTT 命令、状态与事件传输
+│   ├── mqtt_transport.py          MQTT 命令、状态与事件传输
+│   └── config_access.py           配置文件位置与访问检查
 ├── tests/                         149 项测试（含 GPIO 与 MQTT 模拟器）
 ├── deploy/                        systemd 单元和示例配置
 ├── docs/                          桥接指南、证据边界、接线指南

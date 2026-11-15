@@ -262,7 +262,8 @@ HYDRA-UMC-BRIDGE-LASER/
 │   ├── observation.py             lokale Sicherheitsnachweise, nie ein Laserbefehl
 │   ├── events.py                  Ereignisse mit Zeitstempel, wenn sich eine Sicherung ändert
 │   ├── auxiliary.py               Prüfung von Absaugung, Hilfsluft und Röhrentemperatur
-│   └── mqtt_transport.py          MQTT-Transport für Befehle, Status und Ereignisse
+│   ├── mqtt_transport.py          MQTT-Transport für Befehle, Status und Ereignisse
+│   └── config_access.py           Ort der Konfigurationsdatei und Zugriffsprüfung
 ├── tests/                         149 Tests, mit einem GPIO- und MQTT-Emulator
 ├── deploy/                        systemd-Unit und Beispielkonfiguration
 ├── docs/                          Bridge-Leitfaden, Grenze der Nachweise, Verdrahtungsanleitung
