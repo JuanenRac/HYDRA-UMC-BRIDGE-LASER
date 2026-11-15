@@ -81,7 +81,7 @@ The first reading only sets the baseline. A watcher that fails is reported as th
 
 ## Running as a service
 
-`python -m hydra_umc_bridge_laser --config /etc/hydra-umc/bridge-laser.toml` (the path can also come from `HYDRA_UMC_BRIDGE_LASER_CONFIG`) starts the bridge. Nothing that depends on the machine is in the code: the file `deploy/bridge-laser.example.toml` shows every key.
+`python -m hydra_umc_bridge_laser --config /etc/hydra-umc-bridge-laser/bridge-laser.toml` (the path can also come from `HYDRA_UMC_BRIDGE_LASER_CONFIG`) starts the bridge. Nothing that depends on the machine is in the code: the file `deploy/bridge-laser.example.toml` shows every key.
 
 - `[gpio]`: the chip, whether to watch edges, and one table per safeguard (`key`, `enclosure`, `interlock`) with its `line`, `active_low`, `bias` and `debounce_ms`. The polarity (`active_low`) has no default: the safe level depends on the wiring. The three lines must differ.
 - `[controller]`: the serial `device` (a port name or a stable USB serial number), `baud` and `timeout_seconds`. Without the section the controller state is empty and the bridge reads OFFLINE.
@@ -90,6 +90,8 @@ The first reading only sets the baseline. A watcher that fails is reported as th
 - `[mqtt]` and `[idempotency]`: the broker and, optionally, a file that keeps the idempotency keys across restarts. The MQTT user, password and TLS are not in the file: they come from `HYDRA_MQTT_*` in the environment of the service.
 
 A key the service does not know is refused and `--check` validates the file without starting anything. `deploy/hydra-umc-bridge-laser.service` is the systemd unit: it checks the file before starting, restarts on failure and allows only the GPIO chip and the serial devices. The service has run against simulated GPIO and a simulated controller; it has not run on a real cell.
+
+**Where the configuration file lives.** The service runs as its own account, which cannot enter the shared `/etc/hydra-umc` (mode 0750, group of the agent), so the unit asks systemd for a directory of its own, `/etc/hydra-umc-bridge-laser` (`ConfigurationDirectory=`, mode 0750), and reads `bridge-laser.toml` from there. A file of the earlier place (`/etc/hydra-umc/bridge-laser.toml`) is copied there once, as root, by `--prepare-config` (the first `ExecStartPre`; it never overwrites and never deletes the old file, and exits 0 whether it copied, kept or found nothing). The second `ExecStartPre` is `--check-access`, run as the service account: it opens the file and, when it cannot, prints the first directory the account cannot enter or the file it cannot read and exits 2, so the service does not start and the reason is in the journal; an installer runs the same command before it stops a running service (`runuser -u hydra-umc-bridge-laser -- python3 -m hydra_umc_bridge_laser --check-access --config /etc/hydra-umc-bridge-laser/bridge-laser.toml`) and ends without touching the program in use when it fails. The shared `/etc/hydra-umc` is never changed. The environment file (`HYDRA_MQTT_*`) is read by systemd as root and can stay in `/etc/hydra-umc` or go to the new directory.
 
 ### Where the values of the auxiliary safeguards come from
 

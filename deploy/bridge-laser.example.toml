@@ -1,5 +1,5 @@
 # =============================================================================
-# HYDRA-UMC-BRIDGE-LASER - Example configuration (copy to /etc/hydra-umc/bridge-laser.toml)
+# HYDRA-UMC-BRIDGE-LASER - Example configuration (copy to /etc/hydra-umc-bridge-laser/bridge-laser.toml; systemd creates /etc/hydra-umc-bridge-laser for the service, mode 0750)
 # Copyright (C) 2026 JuanenRac (Electro Hobby 3D) <electrohobby3d@gmail.com>
 # GPL-3.0-or-later - see LICENSE
 # =============================================================================
