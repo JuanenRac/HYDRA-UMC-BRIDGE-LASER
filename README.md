@@ -27,7 +27,7 @@ GPL-3.0-or-later - see LICENSE
 
 > **Honesty check - what actually runs today:** the four-signal safety snapshot and gate (`cell.py`'s `LaserSafetySnapshot`/`LaserCellBridge`, funneling every job through `HYDRA-UMC-SDK`'s own `evaluate_job()`), the read-only evidence normalizer (`observation.py`), the real GPIO interlock reader (`gpio_safety.py`'s `GpioSafetyProbe`, libgpiod v2), and the MQTT status/evidence transport (`mqtt_transport.py`) are real and covered by 316 passing `unittest` cases (`python tools/build_test.py`), including `tests/test_gpio_mqtt_emulator.py` running this bridge against a protocol-faithful, hand-written GPIO/MQTT emulator. None of it has touched a real GPIO chip, a real MQTT broker, or an actual laser controller - `test_gpio_safety.py` reads against a fake chip and `test_mqtt_transport.py` uses a fake broker client. There is no concrete laser controller/software integration yet, because the machine and its documented interface aren't available - see "Roadmap & Known limits" below, which already says this plainly, and `CHANGELOG.md` for exactly what has shipped so far. The MQTT transport has also been run against a real HYDRA-UMC-MQTT-BROKER on a development machine (`tests/test_broker_integration.py`, skipped when no broker is installed): publish and subscribe at QoS 0, 1 and 2, the retained availability and its last will, and the way back after the broker went down and up again.
 
-> **Safety and security status:** this ecosystem is not a certified safety system. There is no hardware E-STOP path, no firmware-enforced limits or interlocks and no verified motion command yet; firmware images are checked with CRC-32 and an Ed25519 signature, and a release build refuses the published development keys (the tool heads and expansion boards behind the relay still run URTC bootloaders, which take a shared-key HMAC-SHA256 instead of a signature); TLS and mutual TLS are optional and off by default; no custom board has been populated or tested yet. Read the [security baseline](https://github.com/JuanenRac/HYDRA-UMC-DOCS/blob/main/docs/SECURITY_BASELINE.md) and the [threat model](https://github.com/JuanenRac/HYDRA-UMC-DOCS/blob/main/docs/THREAT_MODEL.md) before relying on any statement here for the safety of a person.
+> **Safety and security status:** this ecosystem is not a certified safety system. There is no hardware E-STOP path, no firmware-enforced limits or interlocks and no verified motion command yet; firmware images are checked with CRC-32 and an Ed25519 signature, and a release build refuses the published development keys (the URTC bootloaders behind the relay no longer take a shared key: the main board verifies an Ed25519 record against a table of public keys, and an expansion board installs an image only when the main board has confirmed that exact image to it); TLS and mutual TLS are optional and off by default; no custom board has been populated or tested yet. Read the [security baseline](https://github.com/JuanenRac/HYDRA-UMC-DOCS/blob/main/docs/SECURITY_BASELINE.md) and the [threat model](https://github.com/JuanenRac/HYDRA-UMC-DOCS/blob/main/docs/THREAT_MODEL.md) before relying on any statement here for the safety of a person.
 
 ---
 
@@ -52,7 +52,7 @@ Each line is one part of this repository and the light says how far it is today.
 
 | Area | State | What it means here |
 |---|---|---|
-| Software | 🟡 | Works for its main purpose; the honesty check above lists what is still missing |
+| Software | 🟡 | Works for its main purpose; the honesty check of this README lists what is still missing |
 | Tests | 🟢 | 316 automated tests, run on every change |
 | Real hardware | 🟠 | Simulated only: tested against emulators, fakes or simulators; no run on real hardware is recorded for this version |
 | Interface and protocols | 🟡 | The routes or messages it offers are documented and tested with a client; not every client has used them yet |
@@ -174,6 +174,8 @@ The library: `LaserCellBridge`, `LaserSafetySnapshot`, `LaserMqttBridge`, `GpioS
 | `HYDRA_MQTT_TLS_CERT` / `HYDRA_MQTT_TLS_KEY` | none | The client certificate and its key for a broker that demands mutual TLS; both are needed |
 
 The three GPIO line offsets and the chip are arguments of `open_gpio_safety()`; the serial device of the GRBL controller is the argument of `open_grbl_laser_state()` (115200 baud, 1 second time-out by default).
+
+**Where the cell state comes from.** `[cell_state] source = "file"` reads the first word of a file (for example `/run/hydra-umc/cell_state`) and takes a missing, unknown or old file as `SAFE_STOP`; `source = "fixed"` uses one value for ever (`INHIBITED` by default). The file is written by HYDRA-UMC-SAFETY-ZONES when its zones file switches `cellState.enabled` on (off by default; see its `docs/CELL_STATE.md`): `READY` only while its last verdict is `READY` and recent, `SAFE_STOP` at a clean stop, and the file goes stale if that service dies. Without that service running there is no producer, so a bridge on `file` reads `SAFE_STOP`; setting `fixed` to `READY` is a decision of the operator that leaves the safety zones out of the gate. Not tried with a real bridge on a real cell.
 
 ## 🚀 Quick start
 
