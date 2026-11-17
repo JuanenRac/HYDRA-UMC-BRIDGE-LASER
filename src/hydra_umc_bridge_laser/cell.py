@@ -19,6 +19,8 @@ class LaserSafetySnapshot:
     key_enabled: bool
     enclosure_closed: bool
     interlock_healthy: bool
+    # The safeguards whose two contacts disagree right now (they read as NOT satisfied); empty with one contact per safeguard.
+    discrepancy: tuple[str, ...] = ()
 
     def machine_state(self) -> MachineState:
         if not self.key_enabled or not self.enclosure_closed or not self.interlock_healthy:

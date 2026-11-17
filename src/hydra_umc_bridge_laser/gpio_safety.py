@@ -65,6 +65,8 @@ class GpioSafetyLines:
     enclosure_closed: GpioLineReader
     interlock_healthy: GpioLineReader
     read_all: Callable[[], tuple[bool, bool, bool]] | None = None
+    # The safeguards (names of SAFEGUARDS) whose two contacts disagreed at the last reading; None when nothing tells.
+    read_faults: Callable[[], tuple[str, ...]] | None = None
 
 
 def with_complements(
@@ -84,6 +86,7 @@ def with_complements(
     if unknown:
         raise ValueError(f"a complementary contact can only be declared for {', '.join(SAFEGUARDS)}, not {', '.join(sorted(unknown))}")
     primary_readers = {"key": lines.key_enabled, "enclosure": lines.enclosure_closed, "interlock": lines.interlock_healthy}
+    in_fault: set[str] = set()
 
     def combine(name: str, primary: bool) -> bool:
         other = complements.get(name)
@@ -91,9 +94,11 @@ def with_complements(
             return primary
         complement = other.read() is True
         if complement != (primary is True):
+            in_fault.add(name)
             if on_discrepancy is not None:
                 on_discrepancy(name, primary is True, complement)
             return False
+        in_fault.discard(name)
         return primary is True
 
     class _Combined:
@@ -110,7 +115,10 @@ def with_complements(
             values = tuple(primary_readers[name].read() for name in SAFEGUARDS)
         return tuple(combine(name, value) for name, value in zip(SAFEGUARDS, values, strict=True))  # type: ignore[return-value]
 
-    return GpioSafetyLines(_Combined("key"), _Combined("enclosure"), _Combined("interlock"), read_all)
+    def read_faults() -> tuple[str, ...]:
+        return tuple(name for name in SAFEGUARDS if name in in_fault)
+
+    return GpioSafetyLines(_Combined("key"), _Combined("enclosure"), _Combined("interlock"), read_all, read_faults)
 
 
 @dataclass(frozen=True)
@@ -280,8 +288,11 @@ def open_gpio_safety(
         def close(self) -> object:
             return request.release()
 
+    def read_faults() -> tuple[str, ...]:
+        return tuple(name for name in SAFEGUARDS if last_discrepancy.get(name))
+
     return GpioSafety(
-        GpioSafetyLines(_RequestedLine(0), _RequestedLine(1), _RequestedLine(2), read_all),
+        GpioSafetyLines(_RequestedLine(0), _RequestedLine(1), _RequestedLine(2), read_all, read_faults),
         _LockedWatcher(),
     )
 
@@ -372,9 +383,17 @@ class GpioSafetyProbe:
         # genuine True signal counts" - a non-bool GPIO read is never
         # possible here (the reader always returns bool), but the
         # constructor call is written the same explicit way regardless.
+        discrepancy: tuple[str, ...] = ()
+        if lines.read_faults is not None:
+            try:
+                names = {"key": "key_enabled", "enclosure": "enclosure_closed", "interlock": "interlock_healthy"}
+                discrepancy = tuple(names[name] for name in lines.read_faults() if name in names)
+            except Exception:  # noqa: BLE001 - the report of a fault must never turn a good reading into a failed one
+                discrepancy = ()
         return LaserSafetySnapshot(
             controller_state,
             key_enabled is True,
             enclosure_closed is True,
             interlock_healthy is True,
+            discrepancy,
         )

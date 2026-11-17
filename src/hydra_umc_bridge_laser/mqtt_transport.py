@@ -81,6 +81,11 @@ _LOG = logging.getLogger(__name__)
 
 def _snapshot_payload(snapshot: LaserSafetySnapshot, observed_at_ms: int, reason: str | None = None) -> str:
     payload = asdict(snapshot)
+    # only present while two contacts of a safeguard disagree, so a bridge with one contact per safeguard publishes what it always did
+    if payload["discrepancy"]:
+        payload["discrepancy"] = list(payload["discrepancy"])
+    else:
+        del payload["discrepancy"]
     payload["machine_state"] = snapshot.machine_state().value
     # when this reading was taken: a retained state without it cannot be told from one that is hours old
     payload["observed_at"] = observed_at_ms

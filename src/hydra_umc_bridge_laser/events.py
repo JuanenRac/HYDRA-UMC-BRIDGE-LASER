@@ -81,6 +81,21 @@ class SafetyEventTracker:
                     if reason is not None:
                         record["reason"] = reason
                     events.append(EventPublish(SAFETY_EVENT_TOPIC, json.dumps(record)))
+            before_faults, after_faults = set(previous.discrepancy), set(snapshot.discrepancy)
+            if before_faults != after_faults:
+                self._sequence += 1
+                fault = {
+                    "event": "safeguard_discrepancy",
+                    "safeguards": [name for name in SAFEGUARDS if name in after_faults],
+                    "cleared": [name for name in SAFEGUARDS if name in before_faults - after_faults],
+                    "at_ms": at_ms,
+                    "sequence": self._sequence,
+                    "machine_state": snapshot.machine_state().value,
+                    "advice": "the two contacts of a safeguard disagree (welded contact, cut wire or short); it reads as not satisfied until they agree",
+                }
+                if reason is not None:
+                    fault["reason"] = reason
+                events.append(EventPublish(SAFETY_EVENT_TOPIC, json.dumps(fault)))
             if _is_safe(previous) and not _is_safe(snapshot):
                 self._sequence += 1
                 opened = {
