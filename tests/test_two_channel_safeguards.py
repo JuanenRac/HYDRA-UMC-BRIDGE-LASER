@@ -235,5 +235,53 @@ class ConfigTests(unittest.TestCase):
                 self.assertEqual(list(seen["complements"]), ["enclosure"])
 
 
+class DiscrepancyReportTests(unittest.TestCase):
+    """The state and the events say WHICH safeguard has its two contacts in disagreement (evidence: simulator)."""
+
+    def disagreeing(self, other_says):
+        base = GpioSafetyLines(Line(True), Line(True), Line(True))
+        return with_complements(base, {"enclosure": Line(other_says)})
+
+    def test_the_snapshot_names_the_safeguard_whose_contacts_disagree_and_forgets_it_when_they_agree(self):
+        other = Line(False)
+        lines = with_complements(GpioSafetyLines(Line(True), Line(True), Line(True)), {"enclosure": other})
+        faulty = GpioSafetyProbe().read_snapshot("IDLE", lines)
+        self.assertEqual(faulty.discrepancy, ("enclosure_closed",))
+        self.assertFalse(faulty.enclosure_closed)
+        other.value = True
+        healed = GpioSafetyProbe().read_snapshot("IDLE", lines)
+        self.assertEqual((healed.discrepancy, healed.enclosure_closed), ((), True))
+
+    def test_one_contact_per_safeguard_reports_no_discrepancy(self):
+        snapshot = GpioSafetyProbe().read_snapshot("IDLE", GpioSafetyLines(Line(True), Line(False), Line(True)))
+        self.assertEqual(snapshot.discrepancy, ())
+
+    def test_the_state_carries_the_discrepancy_only_while_it_lasts(self):
+        from hydra_umc_bridge_laser.mqtt_transport import _snapshot_payload
+
+        faulty = GpioSafetyProbe().read_snapshot("IDLE", self.disagreeing(False))
+        self.assertEqual(json.loads(_snapshot_payload(faulty, 5))["discrepancy"], ["enclosure_closed"])
+        plain = GpioSafetyProbe().read_snapshot("IDLE", GpioSafetyLines(Line(True), Line(True), Line(True)))
+        self.assertNotIn("discrepancy", json.loads(_snapshot_payload(plain, 5)))
+
+    def test_a_discrepancy_that_appears_and_clears_is_an_event_with_qos_1(self):
+        from hydra_umc_bridge_laser.events import SAFETY_EVENT_TOPIC, SafetyEventTracker
+
+        tracker = SafetyEventTracker(clock=lambda: 7.0)
+        good = GpioSafetyProbe().read_snapshot("IDLE", GpioSafetyLines(Line(True), Line(True), Line(True)))
+        self.assertEqual(tracker.observe(good), [])
+        other = Line(False)
+        lines = with_complements(GpioSafetyLines(Line(True), Line(True), Line(True)), {"enclosure": other})
+        appeared = tracker.observe(GpioSafetyProbe().read_snapshot("IDLE", lines))
+        records = [json.loads(item.payload) for item in appeared if item.topic == SAFETY_EVENT_TOPIC]
+        fault = [record for record in records if record["event"] == "safeguard_discrepancy"]
+        self.assertEqual((len(fault), fault[0]["safeguards"], fault[0]["cleared"]), (1, ["enclosure_closed"], []))
+        self.assertTrue(all(item.qos == 1 and not item.retain for item in appeared))
+        self.assertEqual(tracker.observe(GpioSafetyProbe().read_snapshot("IDLE", lines)), [])  # no news while it lasts
+        other.value = True
+        cleared = [json.loads(item.payload) for item in tracker.observe(GpioSafetyProbe().read_snapshot("IDLE", lines))]
+        self.assertEqual([(r["event"], r["safeguards"], r["cleared"]) for r in cleared if r["event"] == "safeguard_discrepancy"], [("safeguard_discrepancy", [], ["enclosure_closed"])])
+
+
 if __name__ == "__main__":
     unittest.main()
