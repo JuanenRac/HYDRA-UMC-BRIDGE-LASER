@@ -59,6 +59,7 @@ max_age_seconds = 30
 # name = "tube_temperature"
 # path = "/run/hydra-umc/laser_tube_celsius"
 # max_celsius = 30.0
+# max_age_seconds = 30   # a file older than this is not satisfied (default 30)
 
 # Keep the idempotency keys in a file so that a restarted bridge refuses a job it already handled.
 [idempotency]

@@ -4,6 +4,8 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+- **The age limit of an auxiliary safeguard file is a setting, and `nan` or `inf` no longer makes a stale file look fresh:** each `[[auxiliary]]` entry takes `max_age_seconds` (default 30, as it was) and refuses a value that is not a positive finite number; `[cell_state] max_age_seconds` refuses `nan` and `inf` too, which used to turn off the check for staleness. A seeded test also walks every combination of the two contacts of the three safeguards and every reader that raises, and checks that a safeguard is never satisfied unless both contacts say so and every line could be read.
+
 - **The README tells what writes the cell state file the bridge reads:** the `[cell_state] file` source is produced by HYDRA-UMC-SAFETY-ZONES when its zones file switches `cellState.enabled` on (off by default); without it a bridge on `file` reads `SAFE_STOP`. **The README states the URTC bootloader check correctly and points to its own honesty check:** the shared safety notice no longer says that the URTC bootloaders behind the relay take a shared-key HMAC-SHA256 (the main board verifies an Ed25519 record and an expansion board installs only an image the main board confirmed), and the status lines no longer send the reader to a check "above" that is further down. README and its seven translations regenerated.
 
 ## [0.2.6]
