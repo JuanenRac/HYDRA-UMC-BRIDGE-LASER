@@ -111,6 +111,8 @@ class AuxiliaryConfig:
     active_low: bool | None = None
     bias: str = "as-is"
     value: float | bool | None = None
+    # How old the file of a "file" source may be before it is not satisfied (seconds).
+    max_age_seconds: float = 30.0
 
 
 @dataclass(frozen=True)
@@ -253,7 +255,7 @@ def parse_config(data: dict) -> ServiceConfig:
     max_age = _kind(cell_table, "max_age_seconds", float, "cell_state", 30.0)
     if source == "file" and not path:
         raise ConfigError("cell_state.path is required when the source is file")
-    if max_age <= 0:
+    if not (0 < max_age < float("inf")):  # nan or inf would make a stale file look fresh for ever
         raise ConfigError("cell_state.max_age_seconds must be positive")
     cell_state = CellStateConfig(source, value, path, max_age)
 
@@ -268,7 +270,7 @@ def parse_config(data: dict) -> ServiceConfig:
         if not isinstance(table, dict):
             raise ConfigError("[[auxiliary]] must be an array of tables")
         where = f"auxiliary[{index}]"
-        _only(table, {"name", "path", "max_celsius", "source", "device", "chip", "line", "active_low", "bias", "value"}, where)
+        _only(table, {"name", "path", "max_celsius", "source", "device", "chip", "line", "active_low", "bias", "value", "max_age_seconds"}, where)
         source = _kind(table, "source", str, where, "file")
         if source not in SOURCES:
             raise ConfigError(f"{where}.source must be one of {', '.join(SOURCES)}")
@@ -285,7 +287,10 @@ def parse_config(data: dict) -> ServiceConfig:
             _kind(table, "active_low", bool, where),
             _kind(table, "bias", str, where, "as-is"),
             table.get("value"),
+            _kind(table, "max_age_seconds", float, where, 30.0),
         )
+        if not (0 < item.max_age_seconds < float("inf")):
+            raise ConfigError(f"{where}.max_age_seconds must be a positive number")
         _check_source_fields(item, where)
         auxiliary.append(item)
     AuxiliarySupervisor([AuxiliaryCheck(item.name, lambda: None, item.max_celsius) for item in auxiliary])  # names and limits are checked now
@@ -381,7 +386,7 @@ def auxiliary_supervisor(items: Sequence[AuxiliaryConfig], *, clock: Callable[[]
             return simulated_reader(item.value)
 
         def read() -> object:
-            word = _fresh_text(item.path, 30.0, clock)
+            word = _fresh_text(item.path, item.max_age_seconds, clock)
             if word is None:
                 return None
             if item.max_celsius is not None:
