@@ -4,6 +4,7 @@ All notable changes to this project are documented here.
 
 ## [Unreleased]
 
+- **Only a signed release ends the global stop, when asked:** with `HYDRA_UMC_LASER_GLOBAL_STOP_KEY_FILE` (or `ready_key_file` in `[global_stop]`) every `SAFE_STOP` is obeyed as before and a `READY` counts only when the server signed it with that key. Off without a key file. It needs the SDK version that carries the signed announcement.
 - **The state and the events say which safeguard has its two contacts in disagreement:** the snapshot carries `discrepancy` (the safeguards whose normally-closed and normally-open contacts disagree, which read as not satisfied), the retained `state` adds a `discrepancy` list only while one lasts, and a `safeguard_discrepancy` event (QoS 1, not retained) is published when the set changes. A bridge with one contact per safeguard publishes what it did before.
 - **The age limit of an auxiliary safeguard file is a setting, and `nan` or `inf` no longer makes a stale file look fresh:** each `[[auxiliary]]` entry takes `max_age_seconds` (default 30, as it was) and refuses a value that is not a positive finite number; `[cell_state] max_age_seconds` refuses `nan` and `inf` too, which used to turn off the check for staleness. A seeded test also walks every combination of the two contacts of the three safeguards and every reader that raises, and checks that a safeguard is never satisfied unless both contacts say so and every line could be read.
 
